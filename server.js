@@ -4,9 +4,11 @@ const { Pool } = require("pg");
 const jwt=require("jsonwebtoken");
 const encrypy=require("bcryptjs");
 const dotenv=require("dotenv");
+const helmet=require("helmet");
 dotenv.config();
 
 const app = express();
+app.use(helmet());
 const port = 5000;
 
 const jwt_key = process.env.SECRET_KEY;
@@ -22,7 +24,50 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT),
 });
 
+
+
+const rateLimit = require('express-rate-limit');
+
+// 1. Blog posting limiter
+const postBlogLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 2,
+  message: 'Too many blog posts from this IP, please try again in a minute',
+});
+
+// 2. Comment posting limiter
+const commentLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 10,
+  message: 'Too many comments, please wait before commenting again',
+});
+
+// 3. Login/Logout limiter
+const authLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000, // 30 minutes
+  max: 5,
+  message: 'Too many login/logout attempts, please try again later',
+});
+
 // Credentials Checkers
+
+const AuthVerify=(req,res,next)=>{
+  const token=req.headers.authorization?.split(" ")[1];
+  if(!token){
+    return res.status(401).json({message:"token is not available"});
+  }
+  console.log("TOKEN",token,jwt.verify(token,jwt_key));
+  try{
+    const verified=jwt.verify(token,jwt_key);
+    console.log("VERIFY",verified);
+    req.user=verified;
+    next();
+  }
+  catch(error){
+    return res.status(403).json({message:"Invalid Token"});
+  }
+}
+
 
 app.post("/api/signup", async   (req, res) => {
   const { username, email, password } = req.body;
@@ -68,7 +113,7 @@ app.get("/api/users/check", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login",async (req, res) => {
   const { detail, password } = req.body;
   try {
     const userQuery = await pool.query(
@@ -77,18 +122,20 @@ app.post("/api/login", async (req, res) => {
     );
     if (userQuery.rows.length === 1) {
       const user_id = userQuery.rows[0].user_id;
-
+      const type    = userQuery.rows[0].type;
+      console.log({user_id,type,password});
       const passQuery = await pool.query(
         "SELECT password FROM auth_details WHERE user_id = $1",
         [user_id]
       );
       const db_hash=passQuery.rows[0].password;
       const checker=await encrypy.compare(password,db_hash);
+      console.log(checker);
       if (checker) {
         const token=jwt.sign(
-          {user_id:user_id},
+          {user_id:user_id,type:type},
           jwt_key,
-          {expiresIn:"10h"}
+          {expiresIn:"1hr"}
         );
         return res.status(200).json({ message: "user found",id:user_id,currentToken:token});
       }
@@ -96,10 +143,10 @@ app.post("/api/login", async (req, res) => {
     
     return res.status(200).json({ message: "user not found",id:null,currentToken:null});
   } catch (error) {
+    console.log(error);
     return res.status(400).json({ message: error.message });
   }
 });
-
 
 
 // Blog Retrievers
@@ -118,8 +165,7 @@ app.get("/api/get/blogs/videos/:blog_id", async (req, res) => {
       return res.status(404).json({
         message: `No videos found for blog_id ${blog_id}`
       });
-    }
-
+    } 
     return res.status(200).json({
       message: "success",
       video_url: query.rows.map(row => row.video_url)
@@ -255,11 +301,36 @@ app.post("/api/get/blogs/likes/",async (req,res)=>{
 })
 
 
+// Report Adders
 
+  app.post("/api/post/report-posts",async (req,res)=>{
+    try{
+      const {user_id,blog_id,reportReason}=req.body;
+      await pool.query("insert into Report(type,post_id,reporter_id,report_reason) values ($1,$2,$3,$4)",[1,blog_id,user_id,reportReason]);
+      return res.status(200).json({message:"Success"})
+    }
+    catch(error){
+      console.log(error);
+      return res.status(400).json({message:error.message}); 
+    }
+  })
+
+  app.post("/api/post/report-comments",async (req,res)=>{
+    try{
+      const {user_id,blog_id,comment_id,reportReason}=req.body;
+      console.log({user_id,blog_id,comment_id,reportReason});
+      await pool.query("insert into Report(type,comment_id,post_id,reporter_id,report_reason) values ($1,$2,$3,$4,$5)",[1,comment_id,blog_id,user_id,reportReason]);
+      return res.status(200).json({message:"sucesss"});
+    }
+    catch(error){
+      console.log(error);
+      return res.status(400).json({message:error.message}); 
+    }
+  })
 
 // Blog Adders
 
-app.post("/api/blogs/images", async (req,res) => {
+app.post("/api/blogs/images",async (req,res) => {
     const { blog_id, image_url } = req.body;
     try {
         const result = await pool.query(
@@ -298,7 +369,7 @@ app.post("/api/blogs/videos",async (req,res)=>{
   }
 })
 
-app.post("/api/add/comment", async (req, res) => {
+app.post("/api/add/comment",commentLimiter, async (req, res) => {
   const { blog_id, user_id, content, parent_id } = req.body;
   try {
     const result = await pool.query(
@@ -311,7 +382,7 @@ app.post("/api/add/comment", async (req, res) => {
   }
 });
 
-app.post("/api/blogs", async (req,res) => {
+app.post("/api/blogs",postBlogLimiter,AuthVerify, async (req,res) => {
     const { title, content, user_id, difficulty, ingredients, categories } = req.body;
     try {
         const result = await pool.query(
@@ -368,6 +439,7 @@ app.post("/api/add/blogs/likes/",async (req,res)=>{
 
 
 // Blog Editters
+
 
 app.put("/api/edit/blogs/images/",async (req,res)=>{
   const {delete_image_id}=req.body;
@@ -502,6 +574,19 @@ app.put("/api/edit/blogs/likes",async (req,res)=>{
   }
 })
 
+app.delete("/api/delete/comments/:comment_id",async (req,res)=>{
+  try{
+  const {comment_id}=req.params;
+  console.log({comment_id});
+  await pool.query("delete from comments where comment_id=$1",[comment_id]);
+  return res.status(200).json({message:"success"});
+}
+catch(error){
+  console.log(error);
+  return res.status(400).json({message:error.message})
+}
+}
+)
 
 
 
