@@ -264,7 +264,7 @@ app.get("/api/get/:blog_id/comment", async (req, res) => {
     return res.status(400).json({ message: error.message });
   }
 });
-
+// 
 app.get("/api/blogs/:blog_id",async (req,res)=>{
   const {blog_id}=req.params;
   // console.log("ID",blog_id);
