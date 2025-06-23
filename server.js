@@ -87,7 +87,7 @@ app.post("/api/signup", async   (req, res) => {
     const token=jwt.sign(
           {user_id:user_id},
           jwt_key,
-          {expiresIn:"10h"}
+          {expiresIn:"24h"}
         );
     
     return res.status(200).json({ message: "Inserted correctly",user_id:user_id,currentToken:token });
@@ -218,6 +218,20 @@ app.get("/api/bookmarks", async (req, res) => {
   }
 });
 
+app.get("/api/users/drafts",async (req,res)=>{
+  const {userId}=req.query;
+  console.log(req.query);
+  try{
+    const query=await pool.query("select * from blogs where status='Draft' and user_id=$1",[userId]);
+    console.log("RESULT",query.rows,userId);
+    return res.status(200).json({drafts:query.rows});
+  }
+  catch(error){
+    console.log(error);
+    return res.status(400).json({message:error.message})
+  }
+})
+
 app.get("/api/users/blogs",async (req,res)=>{
   const {userId}=req.query;
   // console.log(userId);
@@ -233,7 +247,7 @@ app.get("/api/users/blogs",async (req,res)=>{
 
 app.get("/api/get/blogs", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM blogs");
+    const result = await pool.query("SELECT * FROM blogs where status='Publish' ");
     return res.status(201).json({ message: result.rows });
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -278,6 +292,32 @@ const query = await pool.query("SELECT * FROM bookmarks WHERE blog_id = $1 AND u
     return res.status(400).json({"message":error.message});
   }
 })
+
+app.post("/api/post/schedule_blog", async (req, res) => {
+  const { blog_id, date, time } = req.body;
+  console.log({ blog_id, date, time });
+  if (!blog_id || !date || !time) {
+    return res.status(400).json({ message: "blog_id, date, and time are required" });
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO scheduled_blogs (blog_id, date, time)
+       VALUES ($1, $2, $3)
+       RETURNING schedule_id`,
+      [blog_id, date, time]
+    );
+    return res.status(201).json({
+      message: "Blog scheduled successfully",
+      schedule_id: result.rows[0].schedule_id
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Failed to schedule blog",
+      error: error.message
+    });
+  }
+});
 
 app.post("/api/get/blogs/likes/",async (req,res)=>{
   console.log("BODY da  ITHU",req.body);
@@ -353,6 +393,7 @@ app.post("/api/blogs/images",async (req,res) => {
 
 app.post("/api/blogs/videos",async (req,res)=>{
   const {blog_id,video_url}=req.body;
+  console.log({blog_id,video_url});
   try{
     const query=await pool.query(`
       insert into blog_videos(blog_id,video_url) values($1,$2) RETURNING video_id
@@ -383,13 +424,14 @@ app.post("/api/add/comment",commentLimiter, async (req, res) => {
 });
 
 app.post("/api/blogs",postBlogLimiter,AuthVerify, async (req,res) => {
-    const { title, content, user_id, difficulty, ingredients, categories } = req.body;
+    const { title, content, user_id, difficulty, ingredients, categories,type } = req.body;
+    console.log({ title, content, user_id, difficulty, ingredients, categories,type });
     try {
         const result = await pool.query(
-            `INSERT INTO blogs (title, content, user_id, difficulty, ingredients, categories, createdat, likes) 
-             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0) 
+            `INSERT INTO blogs (title, content, user_id, difficulty, ingredients, categories, createdat, likes,status) 
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, 0,$7) 
              RETURNING blog_id`,
-            [title, content, user_id, difficulty, ingredients, categories]
+            [title, content, user_id, difficulty, ingredients, categories,type]
         );
         
         return res.status(201).json({ 
@@ -409,6 +451,7 @@ app.post("/api/add/bookmark",async (req,res)=>{
   const user_id=data.user_id;
   const blog_id=data.blog_id;
   const condition=data.condition;
+  console.log(data);
   try{
   if(condition==true){
     await pool.query("insert into bookmarks(user_id,blog_id) values($1,$2)",[user_id,blog_id]);
@@ -501,14 +544,15 @@ app.put("/api/blogs/:blog_id", async (req, res) => {
             await pool.query('ROLLBACK');
             return res.status(404).json({ error: "Blog not found" });
         }
-
+        
         const result = await pool.query(
             `UPDATE blogs 
              SET title = $1, 
                  content = $2, 
                  difficulty = $3, 
                  ingredients = $4, 
-                 categories = $5
+                 categories = $5,
+                 status='Publish'
              WHERE blog_id = $6 
              RETURNING *`,
             [title, content, difficulty, ingredients, categories, blog_id]
