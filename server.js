@@ -148,6 +148,120 @@ app.post("/api/login",async (req, res) => {
   }
 });
 
+// 1. Get people you may want to follow
+app.get("/api/suggestions/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const result = await pool.query(
+      `SELECT user_id, user_name
+       FROM users
+       WHERE user_id != $1
+         AND user_id NOT IN (
+           SELECT following_id FROM follows WHERE follower_id = $1
+         )`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching suggestions:", err);
+    res.status(500).json({ error: "Failed to fetch suggestions" });
+  }
+});
+
+// 2. Connect (follow someone)
+app.post("/api/connect", async (req, res) => {
+  const { follower_id, following_id } = req.body;
+
+  if (!follower_id || !following_id || follower_id === following_id) {
+    return res.status(400).json({ error: "Invalid user IDs" });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO follows (follower_id, following_id)
+       VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [follower_id, following_id]
+    );
+    res.json({ message: "Connected successfully" });
+  } catch (err) {
+    console.error("Error connecting:", err);
+    res.status(500).json({ error: "Connection failed" });
+  }
+});
+
+// 3. Get followers of a user
+app.get("/api/followers/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const result = await pool.query(
+      `SELECT u.user_id, u.user_name
+       FROM follows f
+       JOIN users u ON f.follower_id = u.user_id
+       WHERE f.following_id = $1`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching followers:", err);
+    res.status(500).json({ error: "Failed to get followers" });
+  }
+});
+
+// 4. Get people the user is following
+app.get("/api/following/:id", async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const result = await pool.query(
+      `SELECT u.user_id, u.user_name
+       FROM follows f
+       JOIN users u ON f.following_id = u.user_id
+       WHERE f.follower_id = $1`,
+      [userId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching following:", err);
+    res.status(500).json({ error: "Failed to get following" });
+  }
+});
+
+// 5. Remove a follower (they followed you)
+app.post("/api/remove-follower", async (req, res) => {
+  const { follower_id, user_id } = req.body;
+
+  if (!follower_id || !user_id) {
+    return res.status(400).json({ error: "Missing follower_id or user_id" });
+  }
+
+  try {
+    await pool.query(
+      `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
+      [follower_id, user_id]
+    );
+    res.json({ message: "Follower removed" });
+  } catch (err) {
+    console.error("Error removing follower:", err);
+    res.status(500).json({ error: "Failed to remove follower" });
+  }
+});
+
+// 6 You unfollow someone
+app.post("/api/unfollow", async (req, res) => {
+  const { follower_id, following_id } = req.body;
+  try {
+    await pool.query(
+      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2",
+      [follower_id, following_id]
+    );
+    res.json({ message: "Unfollowed successfully" });
+  } catch (err) {
+    console.error("Error unfollowing:", err);
+    res.status(500).json({ error: "Failed to unfollow" });
+  }
+});
+
+
 
 // Blog Retrievers
 
@@ -372,6 +486,8 @@ const query = await pool.query("SELECT * FROM bookmarks WHERE blog_id = $1 AND u
   }
 })
 
+
+
 app.post("/api/post/schedule_blog", async (req, res) => {
   const { blog_id, date, time } = req.body;
   console.log({ blog_id, date, time });
@@ -498,18 +614,28 @@ app.post("/api/blogs/videos",async (req,res)=>{
   }
 })
 
-app.post("/api/add/comment",commentLimiter, async (req, res) => {
-  const { blog_id, user_id, content, parent_id } = req.body;
+app.post("/api/add/comment", commentLimiter, async (req, res) => {
+  const { blog_id, userId, content, parent_id } = req.body;
+
   try {
     const result = await pool.query(
-      "INSERT INTO comments (blog_id, user_id, content, parent_id) VALUES ($1, $2, $3, $4) RETURNING *",
-      [blog_id, user_id, content, parent_id]
+      `INSERT INTO comments (blog_id, user_id, content, parent_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [blog_id, userId, content, parent_id || null]
     );
-    return res.status(201).json({ message: "Comment inserted", comment: result.rows[0]});
+
+    return res.status(201).json({
+      message: "Comment inserted",
+      comment: result.rows[0]
+    });
   } catch (error) {
+    console.error("Error inserting comment:", error);
     return res.status(400).json({ message: error.message });
   }
 });
+
+
 
 app.post("/api/blogs",postBlogLimiter,AuthVerify, async (req,res) => {
     const { title, content, user_id, difficulty, ingredients, categories,type } = req.body;
@@ -560,6 +686,7 @@ app.post("/api/add/blogs/likes/",async (req,res)=>{
   console.log("LLIKE DATA",req.body);
   try{
     await pool.query("insert into likes(user_id,blog_id,status) values($1,$2,1)",[userId,blog_id]);
+    await pool.query("update blogs set likes=likes+1 where blog_id=$1",[blog_id]);
     return res.status(200).json({message:"Like added succesfully"});
   }
   catch(error){
@@ -690,9 +817,17 @@ app.delete("/api/blogs/:blog_id", async (req, res) => {
 });
 
 app.put("/api/edit/blogs/likes",async (req,res)=>{
-  const {userId,blog_id}=req.body;
+  const {userId,blog_id,newLikeStatus}=req.body;
   try{
     const query=await pool.query(`update likes set status=1-status where user_id=$1 and blog_id=$2 RETURNING status`,[userId,blog_id]);
+    var val;
+    if(newLikeStatus==0){
+      val=-1
+    }
+    else{
+      val=1;
+    }
+    await pool.query("update blogs set likes=likes+$1 where blog_id=$2",[val,blog_id]);
     return res.status(200).json({
       message:"Successfully updated the like",
       status:query.rows[0].status
