@@ -135,7 +135,7 @@ app.post("/api/login",async (req, res) => {
         const token=jwt.sign(
           {user_id:user_id,type:type},
           jwt_key,
-          {expiresIn:"1hr"}
+          {expiresIn:"10h"}
         );
         return res.status(200).json({ message: "user found",id:user_id,currentToken:token});
       }
@@ -439,13 +439,27 @@ app.get("/api/users/blogs",async (req,res)=>{
 })
 
 app.get("/api/get/blogs", async (req, res) => {
+  const { search } = req.query;
+
   try {
-    const result = await pool.query("SELECT * FROM blogs where status='Publish' ");
-    return res.status(201).json({ message: result.rows });
+    let query;
+    let values;
+
+    if (search && search.trim().length > 0) {
+      query = "SELECT * FROM blogs WHERE status='Publish' AND LOWER(title) LIKE $1";
+      values = [`%${search.toLowerCase()}%`];
+    } else {
+      query = "SELECT * FROM blogs WHERE status='Publish'";
+      values = [];
+    }
+
+    const result = await pool.query(query, values);
+    return res.status(200).json({ message: result.rows });
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
 });
+
 
 app.get("/api/get/:blog_id/comment", async (req, res) => {
   try {
