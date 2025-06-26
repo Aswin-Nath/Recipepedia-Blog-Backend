@@ -9,7 +9,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-const port = 5000;
+// const port = 5000; 
 
 // Route imports with camelCase
 const authRouter = require("./Routes/authRoutes");
@@ -42,7 +42,7 @@ app.use("/api",notificationsRouter);
 app.get("/", (req, res) => {
   res.send("Hello this is the backend");
 });
-// const port = process.env.PORT;
+const port = process.env.PORT;
 app.listen(port, () => {
   console.log(`App is running on http://localhost:${port}`);
 });
