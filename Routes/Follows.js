@@ -10,7 +10,7 @@ router.get("/suggestions/:id", async (req, res) => {
   const userId = req.params.id;
   try {
     const result = await pool.query(
-      `SELECT user_id, user_name
+      `SELECT *
        FROM users
        WHERE user_id != $1
          AND user_id NOT IN (
@@ -52,7 +52,7 @@ router.get("/followers/:id", async (req, res) => {
   const userId = req.params.id;
   try {
     const result = await pool.query(
-      `SELECT u.user_id, u.user_name
+      `SELECT *
        FROM follows f
        JOIN users u ON f.follower_id = u.user_id
        WHERE f.following_id = $1`,
@@ -70,7 +70,7 @@ router.get("/following/:id", async (req, res) => {
   const userId = req.params.id;
   try {
     const result = await pool.query(
-      `SELECT u.user_id, u.user_name
+      `SELECT *
        FROM follows f
        JOIN users u ON f.following_id = u.user_id
        WHERE f.follower_id = $1`,

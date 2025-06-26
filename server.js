@@ -23,7 +23,7 @@ const commentRouter = require("./Routes/Comments");
 const blogAdderRouter = require("./Routes/BlogAdder");
 const blogEditorRouter = require("./Routes/BlogEditor");
 const blogGetterRouter = require("./Routes/BlogGetters");
-
+const detailsRouter=require("./Routes/UserDetails");
 // Route usages with camelCase
 app.use("/api", authRouter);
 app.use("/api", followRouter);
@@ -36,6 +36,7 @@ app.use("/api", draftRouter);
 app.use("/api", commentRouter);
 app.use("/api", likeRouter);
 app.use("/api", reportRouter);
+app.use("/api",detailsRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello this is the backend");
