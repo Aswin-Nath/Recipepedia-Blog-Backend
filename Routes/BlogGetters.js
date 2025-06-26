@@ -98,6 +98,7 @@ router.get("/blogs/:blog_id",async (req,res)=>{
     return res.status(200).json({message:"Successfully retreived blog",blog:query.rows});
   }
   catch(error){
+    console.log(error);
     return res.status(400).json({message:"Error occured while getting the blog"});
   }
 })
