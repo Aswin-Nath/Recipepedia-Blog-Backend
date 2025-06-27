@@ -3,16 +3,15 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../Configs/db");
+const {UserSockets}=require("../Sockets/Sockets");
 
-// Get scheduled blogs to publish now (IST time window)
 router.get("/scheduler/now", async (req, res) => {
   try {
-    // Convert current UTC time to IST (UTC+5:30)
     const now = new Date();
     const istOffsetMs = 5.5 * 60 * 60 * 1000;
     const istNow = new Date(now.getTime() + istOffsetMs);
 
-    const dateStr = istNow.toISOString().split("T")[0]; // YYYY-MM-DD
+    const dateStr = istNow.toISOString().split("T")[0];
     const hour = istNow.getHours().toString().padStart(2, "0");
     const minute = istNow.getMinutes().toString().padStart(2, "0");
     const nextMinute = ((istNow.getMinutes() + 1) % 60).toString().padStart(2, "0");
@@ -22,28 +21,54 @@ router.get("/scheduler/now", async (req, res) => {
 
     console.log(`🕒 IST Time Range: ${dateStr} ${timeStart} to ${timeEnd}`);
 
-    // Step 1: Fetch scheduled blogs in the current IST time window
     const scheduledQuery = await pool.query(
       "SELECT * FROM scheduled_blogs WHERE date = $1 AND time >= $2 AND time < $3",
       [dateStr, timeStart, timeEnd]
     );
+
     const scheduled = scheduledQuery.rows;
 
     if (!scheduled || scheduled.length === 0) {
       return res.json({ scheduled: [], message: "No blogs to schedule at this time." });
     }
 
-    // Step 2: Extract blog_ids
     const blogIds = scheduled.map((row) => row.blog_id);
     console.log("📦 Scheduled Blog IDs to publish:", blogIds);
 
-    // Step 3: Update status to 'Publish' in blogs table
+    const userIdQuery = await pool.query(
+      "SELECT blog_id, user_id FROM blogs WHERE blog_id = ANY($1::int[])",
+      [blogIds]
+    );
+    const blogOwnerRows = userIdQuery.rows;
+
+    for (const row of blogOwnerRows) {
+      const { user_id: ownerId, blog_id } = row;
+
+      // 1️⃣ Insert into blog_notifications
+      await pool.query(
+        `INSERT INTO blog_notifications (blog_id)
+         VALUES ($1)`,
+        [blog_id]
+      );
+
+      // 2️⃣ Emit real-time socket if online
+      const UserSocket = UserSockets.get(ownerId);
+      if (UserSocket) {
+        UserSocket.emit("notify", {
+          type: "publish",
+          message: `✅ Your scheduled blog (ID: ${blog_id}) has been published at ${istNow}`,
+          blog_id,
+        });
+      } else {
+        console.log(`⚠️ No active socket found for user ${ownerId}`);
+      }
+    }
+
     await pool.query(
       "UPDATE blogs SET status = 'Publish' WHERE blog_id = ANY($1::int[])",
       [blogIds]
     );
 
-    // Step 4: Delete corresponding entries from scheduled_blogs
     await pool.query(
       "DELETE FROM scheduled_blogs WHERE blog_id = ANY($1::int[])",
       [blogIds]
@@ -61,5 +86,6 @@ router.get("/scheduler/now", async (req, res) => {
     });
   }
 });
+
 
 module.exports = router;
