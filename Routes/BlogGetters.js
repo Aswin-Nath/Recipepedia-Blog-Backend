@@ -55,14 +55,14 @@ router.get("/get/blogs/images/:blog_id",async (req,res)=>{
 })
 
 router.get("/users/blogs",async (req,res)=>{
-  const {userId}=req.query;
-  // console.log(userId);
+  const userId=parseInt(req.query.userId);
   try{
     const query=await pool.query("select * from blogs where user_id=$1",[userId]);
     const result=query.rows;
     return res.status(200).json({blogs:result});
   }
   catch(error){
+    console.log(error);
     return res.status(400).json({message:error.message,blogs:[]})
   }
 })

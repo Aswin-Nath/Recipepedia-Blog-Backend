@@ -1,13 +1,9 @@
-const express = require("express");
-const cors = require("cors");
+
 const dotenv = require("dotenv");
-const helmet = require("helmet");
 dotenv.config();
 
-const app = express();
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
+const {app}=require("./App/AppInstance");
+require("./Sockets/CreateSocketByID");
 
 
 // Route imports with camelCase
@@ -23,10 +19,10 @@ const blogAdderRouter = require("./Routes/BlogAdder");
 const blogEditorRouter = require("./Routes/BlogEditor");
 const blogGetterRouter = require("./Routes/BlogGetters");
 const detailsRouter=require("./Routes/UserDetails");
-const notificationsRouter=require("./Socket/Notifications");
+const notificationsRouter=require("./Routes/Notifications");
 const scheduleBlogRouter=require("./Cronjob/ScheduleBlogCron");
 // Route usages with camelCase
-app.use("/api", authRouter);
+app.use("/api", authRouter);  
 app.use("/api", followRouter);
 app.use("/api", scheduleRouter);
 app.use("/api", blogAdderRouter);
@@ -43,7 +39,8 @@ app.use("/api",scheduleBlogRouter);
 app.get("/", (req, res) => {
   res.send("Hello this is the backend");
 });
+const {server}=require("./Servers/CreateHTTPServer");
 const port = process.env.PORT || 5000;
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`App is running on http://localhost:${port}`);
 });
