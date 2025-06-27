@@ -25,6 +25,7 @@ const blogEditorRouter = require("./Routes/BlogEditor");
 const blogGetterRouter = require("./Routes/BlogGetters");
 const detailsRouter=require("./Routes/UserDetails");
 const notificationsRouter=require("./Socket/Notifications");
+const scheduleBlogRouter=require("./Cronjob/ScheduleBlogCron");
 // Route usages with camelCase
 app.use("/api", authRouter);
 app.use("/api", followRouter);
@@ -39,6 +40,7 @@ app.use("/api", likeRouter);
 app.use("/api", reportRouter);
 app.use("/api",detailsRouter);
 app.use("/api",notificationsRouter);
+app.use("/api",scheduleBlogRouter);
 app.get("/", (req, res) => {
   res.send("Hello this is the backend");
 });
