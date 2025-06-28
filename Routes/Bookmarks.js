@@ -44,7 +44,6 @@ router.post("/add/bookmark",async (req,res)=>{
   const user_id=data.user_id;
   const blog_id=data.blog_id;
   const condition=data.condition;
-  console.log(data);
   try{
   if(condition==true){
     await pool.query("insert into bookmarks(user_id,blog_id) values($1,$2)",[user_id,blog_id]);

@@ -4,7 +4,6 @@ const {io}=require("./CreateIO");
 
 io.use((socket,next)=>{
     const token=socket.handshake.auth.token;
-    console.log(token);
     if(!token){
         return next(new Error("no token"));
     }

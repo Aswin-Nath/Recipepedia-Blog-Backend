@@ -31,7 +31,6 @@ router.post("/blogs/images",async (req,res) => {
 
 router.post("/blogs/videos",async (req,res)=>{
   const {blog_id,video_url}=req.body;
-  console.log({blog_id,video_url});
   try{
     const query=await pool.query(`
       insert into blog_videos(blog_id,video_url) values($1,$2) RETURNING video_id
@@ -50,7 +49,6 @@ router.post("/blogs/videos",async (req,res)=>{
 
 router.post("/blogs",postBlogLimiter,AuthVerify, async (req,res) => {
     const { title, content, user_id, difficulty, ingredients, categories,type } = req.body;
-    console.log({ title, content, user_id, difficulty, ingredients, categories,type });
     try {
         const result = await pool.query(
             `INSERT INTO blogs (title, content, user_id, difficulty, ingredients, categories, createdat, likes,status) 

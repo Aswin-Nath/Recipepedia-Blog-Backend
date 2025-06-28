@@ -36,7 +36,6 @@ router.post("/signup", authLimiter,async   (req, res) => {
 
 router.get("/users/check",authLimiter, async (req, res) => {
   const { Username,Email } = req.query;
-  // console.log(Username,Email);
   try {
     const result = await pool.query("SELECT * FROM users");
     let user_name = 0, user_mail = 0;
@@ -44,7 +43,6 @@ router.get("/users/check",authLimiter, async (req, res) => {
       if (user.user_name === Username) user_name = 1;
       if (user.user_mail === Email) user_mail = 1;
     });
-    // console.log(user_name,user_mail);
     return res.status(200).json({ mail: user_mail, name: user_name });
   } catch (err) {
     return res.status(400).json({ message: "Error ra sunni" });
@@ -61,14 +59,12 @@ router.post("/login",async (req, res) => {
     if (userQuery.rows.length === 1) {
       const user_id = userQuery.rows[0].user_id;
       const type    = userQuery.rows[0].type;
-      console.log({user_id,type,password});
       const passQuery = await pool.query(
         "SELECT password FROM auth_details WHERE user_id = $1",
         [user_id]
       );
       const db_hash=passQuery.rows[0].password;
       const checker=await encrypy.compare(password,db_hash);
-      console.log(checker);
       if (checker) {
         const token=jwt.sign(
           {user_id:user_id,type:type},

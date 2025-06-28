@@ -7,7 +7,6 @@ const pool=require("../Configs/db");
 
 router.put("/edit/blogs/images/",async (req,res)=>{
   const {delete_image_id}=req.body;
-  console.log(delete_image_id);
   try{
     for(let i=0;i<delete_image_id.length;i++){
       try{
@@ -34,7 +33,6 @@ router.put("/edit/blogs/images/",async (req,res)=>{
 
 router.put("/edit/blogs/videos",async (req,res)=>{
   const {blog_id}=req.body;
-  console.log(blog_id);
   try{
     await pool.query(`delete from blog_videos where blog_id=$1`,[blog_id]);
     return res.status(201).json({

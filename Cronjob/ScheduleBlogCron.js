@@ -19,7 +19,6 @@ router.get("/scheduler/now", async (req, res) => {
     const timeStart = `${hour}:${minute}:00`;
     const timeEnd = `${hour}:${nextMinute}:00`;
 
-    console.log(`🕒 IST Time Range: ${dateStr} ${timeStart} to ${timeEnd}`);
 
     const scheduledQuery = await pool.query(
       "SELECT * FROM scheduled_blogs WHERE date = $1 AND time >= $2 AND time < $3",
@@ -33,7 +32,6 @@ router.get("/scheduler/now", async (req, res) => {
     }
 
     const blogIds = scheduled.map((row) => row.blog_id);
-    console.log("📦 Scheduled Blog IDs to publish:", blogIds);
 
     const userIdQuery = await pool.query(
       "SELECT blog_id, user_id FROM blogs WHERE blog_id = ANY($1::int[])",

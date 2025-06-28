@@ -7,14 +7,12 @@ const pool=require("../Configs/db");
 
 router.get("/get/blogs/videos/:blog_id", async (req, res) => {
   const { blog_id } = req.params;
-  console.log("VIDEO", blog_id);
   
   try {
     const query = await pool.query(
       `SELECT * FROM blog_videos WHERE blog_id = $1`, 
       [blog_id]
     );
-    console.log("QUERY",query.rows)
     if (query.length === 0) {
       return res.status(404).json({
         message: `No videos found for blog_id ${blog_id}`
@@ -36,11 +34,9 @@ router.get("/get/blogs/videos/:blog_id", async (req, res) => {
 
 router.get("/get/blogs/images/:blog_id",async (req,res)=>{
   const {blog_id}=req.params;
-  // console.log(blog_id,"POST");
 
   try{
     const query=await pool.query(`select * from blog_images where blog_id=$1`,[blog_id]);
-    console.log("IMAGES",query.rows);
     return res.status(200).json({
       message:"success",
       image_urls:query.rows
@@ -91,10 +87,8 @@ router.get("/get/blogs", async (req, res) => {
 
 router.get("/blogs/:blog_id",async (req,res)=>{
   const {blog_id}=req.params;
-  // console.log("ID",blog_id);
   try{
     const query=await pool.query(`select * from blogs where blog_id=$1`,[blog_id]);
-    console.log("ROW",query.rows)
     return res.status(200).json({message:"Successfully retreived blog",blog:query.rows});
   }
   catch(error){

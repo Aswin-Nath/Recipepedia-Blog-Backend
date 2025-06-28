@@ -8,7 +8,6 @@ const pool=require("../Configs/db");
 router.get("/get/scheduled_blogs/",async (req,res)=>{
   try{
     const {userId}=req.query;
-    console.log(userId);
     const query1=await pool.query("select * from blogs where status='Hold' and user_id=$1",[userId]);
     const rows=query1.rows;
     const blog_ids=[];
@@ -43,7 +42,6 @@ router.get("/get/scheduled_blogs/",async (req,res)=>{
 router.get("/get/scheduled_blog/", async (req, res) => {
   try {
     const { blog_id } = req.query;
-    console.log(blog_id);
 
     const query1 = await pool.query("SELECT * FROM blogs WHERE blog_id = $1", [blog_id]);
     const blog = query1.rows[0];
@@ -68,13 +66,10 @@ router.get("/get/scheduled_blog/", async (req, res) => {
 router.get("/get/scheduled_time",async (req,res)=>{
   try{
     const {blog_id}=req.query;
-    console.log({blog_id});
     const query=await pool.query("select * from scheduled_blogs where blog_id=$1",[blog_id]);
-    console.log(query);
     const result=query.rows[0];
     const blog_date=result.date;
     const blog_time=result.time;
-    console.log({blog_date,blog_time});
     return res.status(200).json({time:blog_time,date:blog_date});
   }
   catch(error){
@@ -85,7 +80,6 @@ router.get("/get/scheduled_time",async (req,res)=>{
 
 router.post("/post/schedule_blog", async (req, res) => {
   const { blog_id, date, time } = req.body;
-  console.log({ blog_id, date, time });
 
   if (!blog_id || !date || !time) {
     return res.status(400).json({ message: "blog_id, date, and time are required" });

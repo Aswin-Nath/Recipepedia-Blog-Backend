@@ -11,7 +11,6 @@ router.get("/get/:blog_id/comment", async (req, res) => {
   try {
     const {blog_id}=req.params;
     const result = await pool.query("SELECT * FROM comments where blog_id=$1",[blog_id]);
-    // console.log(result.rows);
     return res.status(201).json({ message: result.rows });
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -35,7 +34,6 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
       `SELECT user_id FROM blogs WHERE blog_id = $1`,
       [blog_id]
     );
-    console.log(blogQuery);
     if (blogQuery.rowCount > 0) {
       const blogOwnerId = blogQuery.rows[0].user_id;
 
@@ -50,7 +48,6 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
         // 2️⃣ Emit to blog owner via socket
         const ownerSocket = UserSockets.get(blogOwnerId);
         if (ownerSocket) {
-          console.log(ownerSocket);
           ownerSocket.emit("notify", {
             type: "comment",
             message: `📩 New comment on your blog by user ${userId}`,

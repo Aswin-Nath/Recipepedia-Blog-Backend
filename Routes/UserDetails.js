@@ -10,7 +10,6 @@ const {AuthVerify}=require("../Middleware/auth");
 router.get("/user-details",AuthVerify,async (req,res)=>{
     try{
         const {userId}=req.query;
-        console.log(userId);
         const query=await pool.query("select * from users where user_id=$1",[userId]);
         return res.status(200).json({details:query.rows,message:"success"})
     }
