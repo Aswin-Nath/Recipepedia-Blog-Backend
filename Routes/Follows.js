@@ -1,9 +1,7 @@
-const express=require("express");
-const router=express.Router();
-
-
-const pool=require("../Configs/db");
-
+const express = require("express");
+const router = express.Router();
+const { UserSockets } = require("../Sockets/Sockets");
+const pool = require("../Configs/db");
 
 // 1. Get people you may want to follow
 router.get("/suggestions/:id", async (req, res) => {
@@ -40,6 +38,18 @@ router.post("/connect", async (req, res) => {
        ON CONFLICT DO NOTHING`,
       [follower_id, following_id]
     );
+    // Send socket notification if online
+    // Insert into new notifications table
+    await pool.query(
+      "INSERT INTO notifications (user_id, type, follower_id) VALUES ($1, 'follow', $2)",
+      [following_id, follower_id]
+    );
+    const ownerSocket = UserSockets.get(following_id);
+    if (ownerSocket) {
+      ownerSocket.emit("notify", {
+        message: `someone has followed you with the id ${follower_id}`
+      });
+    }
     res.json({ message: "Connected successfully" });
   } catch (err) {
     console.error("Error connecting:", err);
@@ -92,31 +102,43 @@ router.post("/remove-follower", async (req, res) => {
   }
 
   try {
+    // Remove from follows
     await pool.query(
       `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
       [follower_id, user_id]
     );
-    res.json({ message: "Follower removed" });
+    // Remove follow notification from new notifications table
+    await pool.query(
+      `DELETE FROM notifications WHERE type = 'follow' AND user_id = $1 AND follower_id = $2`,
+      [user_id, follower_id]
+    );
+    res.json({ message: "Follower removed and notification deleted" });
   } catch (err) {
     console.error("Error removing follower:", err);
     res.status(500).json({ error: "Failed to remove follower" });
   }
 });
 
-// 6 You unfollow someone
+// 6. You unfollow someone
 router.post("/unfollow", async (req, res) => {
   const { follower_id, following_id } = req.body;
+
   try {
+    // Remove from follows
     await pool.query(
-      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2",
+      `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
       [follower_id, following_id]
     );
-    res.json({ message: "Unfollowed successfully" });
+    // Remove follow notification from new notifications table
+    await pool.query(
+      `DELETE FROM notifications WHERE type = 'follow' AND user_id = $1 AND follower_id = $2`,
+      [following_id, follower_id]
+    );
+    res.json({ message: "Unfollowed and notification deleted" });
   } catch (err) {
     console.error("Error unfollowing:", err);
     res.status(500).json({ error: "Failed to unfollow" });
   }
 });
 
-
-module.exports=router;
+module.exports = router;

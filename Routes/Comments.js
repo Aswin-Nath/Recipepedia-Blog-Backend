@@ -42,9 +42,9 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
       if (blogOwnerId) {
         // 1️⃣ Save to comment_notifications
         await pool.query(
-          `INSERT INTO comment_notifications (blog_id, comment_id, user_id)
-           VALUES ($1, $2, $3)`,
-          [blog_id, newComment.comment_id, blogOwnerId]
+          `INSERT INTO notifications (user_id, type, blog_id, comment_id)
+           VALUES ($1, 'comment', $2, $3)`,
+          [blogOwnerId, blog_id, newComment.comment_id]
         );
 
         // 2️⃣ Emit to blog owner via socket

@@ -2,12 +2,12 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../Configs/db");
 
-// Get all blog notifications for a user (by user_id)
-router.get("/notifications/blog", async (req, res) => {
+// Get all notifications for a user (all types, sorted by time)
+router.get("/notifications/all", async (req, res) => {
   const { userId } = req.query;
   try {
     const query = await pool.query(
-      "SELECT * FROM blog_notifications WHERE user_id = $1 ORDER BY notification_time DESC",
+      "SELECT * FROM notifications WHERE user_id = $1 ORDER BY notification_time DESC",
       [userId]
     );
     return res.status(200).json({ notifications: query.rows });
@@ -17,28 +17,13 @@ router.get("/notifications/blog", async (req, res) => {
   }
 });
 
-// Get all comment notifications for a user (by user_id)
-router.get("/notifications/comment", async (req, res) => {
-  const { userId } = req.query;
-  try {
-    const query = await pool.query(
-      "SELECT * FROM comment_notifications WHERE user_id = $1 ORDER BY notification_time DESC",
-      [userId]
-    );
-    return res.status(200).json({ notifications: query.rows });
-  } catch (error) {
-    console.log(error);
-    return res.status(400).json({ message: error.message });
-  }
-});
-
-// Post a new blog notification
+// Create a blog notification
 router.post("/notifications/blog", async (req, res) => {
   const { blogId, userId } = req.body;
   try {
     const query = await pool.query(
-      "INSERT INTO blog_notifications (blog_id, user_id) VALUES ($1, $2) RETURNING *",
-      [blogId, userId]
+      "INSERT INTO notifications (user_id, type, blog_id) VALUES ($1, 'blog', $2) RETURNING *",
+      [userId, blogId]
     );
     return res.status(201).json({ notification: query.rows[0] });
   } catch (error) {
@@ -47,13 +32,13 @@ router.post("/notifications/blog", async (req, res) => {
   }
 });
 
-// Post a new comment notification
+// Create a comment notification
 router.post("/notifications/comment", async (req, res) => {
   const { blogId, commentId, userId } = req.body;
   try {
     const query = await pool.query(
-      "INSERT INTO comment_notifications (blog_id, comment_id, user_id) VALUES ($1, $2, $3) RETURNING *",
-      [blogId, commentId, userId]
+      "INSERT INTO notifications (user_id, type, blog_id, comment_id) VALUES ($1, 'comment', $2, $3) RETURNING *",
+      [userId, blogId, commentId]
     );
     return res.status(201).json({ notification: query.rows[0] });
   } catch (error) {
@@ -62,12 +47,27 @@ router.post("/notifications/comment", async (req, res) => {
   }
 });
 
-// Update blog notification as read (by notification_id)
-router.put("/notifications/blog/read", async (req, res) => {
+// Create a follow notification
+router.post("/notifications/follow", async (req, res) => {
+  const { userId, followerId } = req.body; // userId = recipient, followerId = who followed
+  try {
+    const query = await pool.query(
+      "INSERT INTO notifications (user_id, type, follower_id) VALUES ($1, 'follow', $2) RETURNING *",
+      [userId, followerId]
+    );
+    return res.status(201).json({ notification: query.rows[0] });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+// Mark a notification as read
+router.put("/notifications/read", async (req, res) => {
   const { notificationId } = req.body;
   try {
     const query = await pool.query(
-      "UPDATE blog_notifications SET is_read = TRUE WHERE notification_id = $1 RETURNING *",
+      "UPDATE notifications SET is_read = TRUE WHERE notification_id = $1 RETURNING *",
       [notificationId]
     );
     return res.status(200).json({ notification: query.rows[0] });
@@ -77,19 +77,4 @@ router.put("/notifications/blog/read", async (req, res) => {
   }
 });
 
-// Update comment notification as read (by notification_id)
-router.put("/notifications/comment/read", async (req, res) => {
-  const { notificationId } = req.body;
-  try {
-    const query = await pool.query(
-      "UPDATE comment_notifications SET is_read = TRUE WHERE notification_id = $1 RETURNING *",
-      [notificationId]
-    );
-    return res.status(200).json({ notification: query.rows[0] });
-  } catch (error) {
-    console.log(error);
-    return res.status(400).json({ message: error.message });
-  }
-});
-
-module.exports=router;
+module.exports = router;

@@ -46,9 +46,9 @@ router.get("/scheduler/now", async (req, res) => {
 
       // 1️⃣ Insert into blog_notifications
       await pool.query(
-        `INSERT INTO blog_notifications (blog_id)
-         VALUES ($1)`,
-        [blog_id]
+        `INSERT INTO notifications (user_id, type, blog_id)
+         VALUES ($1, 'blog', $2)`,
+        [ownerId, blog_id]
       );
 
       // 2️⃣ Emit real-time socket if online
