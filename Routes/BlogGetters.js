@@ -11,7 +11,7 @@ router.get("/get/blogs/videos/:blog_id", async (req, res) => {
       SELECT * FROM blog_videos WHERE blog_id = ${blog_id}
     `;
     if (query.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         message: `No videos found for blog_id ${blog_id}`
       });
     }
