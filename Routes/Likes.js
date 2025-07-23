@@ -1,65 +1,72 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
+const sql = require("../Configs/db");
 
-const pool=require("../Configs/db");
-
-router.post("/add/blogs/likes/",async (req,res)=>{
-  const {userId,blog_id}=req.body;
-  try{
-    await pool.query("insert into likes(user_id,blog_id,status) values($1,$2,1)",[userId,blog_id]);
-    await pool.query("update blogs set likes=likes+1 where blog_id=$1",[blog_id]);
-    return res.status(200).json({message:"Like added succesfully"});
+router.post("/add/blogs/likes/", async (req, res) => {
+  const { userId, blog_id } = req.body;
+  try {
+    await sql`
+      INSERT INTO likes(user_id, blog_id, status) VALUES (${userId}, ${blog_id}, 1)
+    `;
+    await sql`
+      UPDATE blogs SET likes = likes + 1 WHERE blog_id = ${blog_id}
+    `;
+    return res.status(200).json({ message: "Like added succesfully" });
   }
-  catch(error){
-    return res.status(400).json({message:"Error occured while liking",error:error.message})
+  catch (error) {
+    return res.status(400).json({ message: "Error occured while liking", error: error.message });
   }
-})
+});
 
-
-router.post("/get/blogs/likes/",async (req,res)=>{
-   const {userId,blog_id}=req.body;
-  try{
-    const query=await pool.query(`select * from likes where user_id=$1 and blog_id=$2`,[userId,blog_id]);
-    var status=0;
-    if(query?.rows?.length>0){
-      status=query.rows[0].status;
+router.post("/get/blogs/likes/", async (req, res) => {
+  const { userId, blog_id } = req.body;
+  try {
+    const query = await sql`
+      SELECT * FROM likes WHERE user_id = ${userId} AND blog_id = ${blog_id}
+    `;
+    var status = 0;
+    if (query?.length > 0) {
+      status = query[0].status;
     }
-    if(query.rows.length==0){
-      return res.status(200).json({status:-1});
+    if (query.length === 0) {
+      return res.status(200).json({ status: -1 });
     }
-    return res.status(200).json({message:"Successfully got like status",status:status})
+    return res.status(200).json({ message: "Successfully got like status", status: status });
   }
-  catch(error){
-    return res.status(400).json({message:"Error occured while getting the like status",error:error.message});
+  catch (error) {
+    return res.status(400).json({ message: "Error occured while getting the like status", error: error.message });
   }
-})
+});
 
-
-router.put("/edit/blogs/likes",async (req,res)=>{
-  const {userId,blog_id,newLikeStatus}=req.body;
-  try{
-    const query=await pool.query(`update likes set status=1-status where user_id=$1 and blog_id=$2 RETURNING status`,[userId,blog_id]);
+router.put("/edit/blogs/likes", async (req, res) => {
+  const { userId, blog_id, newLikeStatus } = req.body;
+  try {
+    const query = await sql`
+      UPDATE likes SET status = 1 - status WHERE user_id = ${userId} AND blog_id = ${blog_id} RETURNING status
+    `;
     var val;
-    if(newLikeStatus==0){
-      val=-1
+    if (newLikeStatus == 0) {
+      val = -1;
     }
-    else{
-      val=1;
+    else {
+      val = 1;
     }
-    await pool.query("update blogs set likes=likes+$1 where blog_id=$2",[val,blog_id]);
+    await sql`
+      UPDATE blogs SET likes = likes + ${val} WHERE blog_id = ${blog_id}
+    `;
     return res.status(200).json({
-      message:"Successfully updated the like",
-      status:query.rows[0].status
-    })
+      message: "Successfully updated the like",
+      status: query[0].status
+    });
   }
-  catch(error){
+  catch (error) {
     return res.status(400).json({
-      message:"Error occured while updating like",
-      error:error.message
-    })
+      message: "Error occured while updating like",
+      error: error.message
+    });
   }
-})
+});
 
-module.exports=router
+module.exports =router;

@@ -1,28 +1,29 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
+const sql = require("../Configs/db");
 
-const pool=require("../Configs/db");
-
-router.get("/get/scheduled_blogs/",async (req,res)=>{
-  try{
-    const {userId}=req.query;
-    const query1=await pool.query("select * from blogs where status='Hold' and user_id=$1",[userId]);
-    const rows=query1.rows;
-    const blog_ids=[];
-    for(var i=0;i<rows.length;i++){
-      blog_ids.push(rows[i].blog_id);
+router.get("/get/scheduled_blogs/", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const blogs = await sql`
+      SELECT * FROM blogs WHERE status='Hold' AND user_id=${userId}
+    `;
+    const blog_ids = blogs.map(b => b.blog_id);
+    let scheduled = [];
+    if (blog_ids.length > 0) {
+      scheduled = await sql`
+        SELECT * FROM scheduled_blogs WHERE blog_id = ANY(${blog_ids})
+      `;
     }
-    const query2=await pool.query("select * from scheduled_blogs where blog_id=ANY($1)",[blog_ids]);
-    const rows2=query2.rows;
     const scheduleMap = new Map();
-    for (const s of rows2) {
+    for (const s of scheduled) {
       scheduleMap.set(s.blog_id, { date: s.date, time: s.time });
     }
 
     const process = [];
-    for (const b of rows) {
+    for (const b of blogs) {
       if (scheduleMap.has(b.blog_id)) {
         process.push({
           ...b,
@@ -32,23 +33,27 @@ router.get("/get/scheduled_blogs/",async (req,res)=>{
       }
     }
 
-    return res.status(200).json({message:"success",schedule_blogs:process})
+    return res.status(200).json({ message: "success", schedule_blogs: process });
   }
-  catch(error){
-    res.status(400).json({message:error.message});
+  catch (error) {
+    res.status(400).json({ message: error.message });
   }
-})
+});
 
 router.get("/get/scheduled_blog/", async (req, res) => {
   try {
     const { blog_id } = req.query;
 
-    const query1 = await pool.query("SELECT * FROM blogs WHERE blog_id = $1", [blog_id]);
-    const blog = query1.rows[0];
+    const blogs = await sql`
+      SELECT * FROM blogs WHERE blog_id = ${blog_id}
+    `;
+    const blog = blogs[0];
     if (!blog) return res.status(404).json({ message: "Blog not found" });
 
-    const query2 = await pool.query("SELECT * FROM scheduled_blogs WHERE blog_id = $1", [blog_id]);
-    const schedule = query2.rows[0];
+    const schedules = await sql`
+      SELECT * FROM scheduled_blogs WHERE blog_id = ${blog_id}
+    `;
+    const schedule = schedules[0];
 
     if (schedule) {
       blog.date = schedule.date;
@@ -63,20 +68,23 @@ router.get("/get/scheduled_blog/", async (req, res) => {
   }
 });
 
-router.get("/get/scheduled_time",async (req,res)=>{
-  try{
-    const {blog_id}=req.query;
-    const query=await pool.query("select * from scheduled_blogs where blog_id=$1",[blog_id]);
-    const result=query.rows[0];
-    const blog_date=result.date;
-    const blog_time=result.time;
-    return res.status(200).json({time:blog_time,date:blog_date});
+router.get("/get/scheduled_time", async (req, res) => {
+  try {
+    const { blog_id } = req.query;
+    const result = await sql`
+      SELECT * FROM scheduled_blogs WHERE blog_id = ${blog_id}
+    `;
+    const schedule = result[0];
+    if (!schedule) {
+      return res.status(404).json({ message: "Schedule not found" });
+    }
+    return res.status(200).json({ time: schedule.time, date: schedule.date });
   }
-  catch(error){
+  catch (error) {
     console.log(error);
-    return res.status(400).json({message:error.message})
+    return res.status(400).json({ message: error.message });
   }
-})
+});
 
 router.post("/post/schedule_blog", async (req, res) => {
   const { blog_id, date, time } = req.body;
@@ -86,20 +94,17 @@ router.post("/post/schedule_blog", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `
+    const result = await sql`
       INSERT INTO scheduled_blogs (blog_id, date, time)
-      VALUES ($1, $2, $3)
+      VALUES (${blog_id}, ${date}, ${time})
       ON CONFLICT (blog_id)
       DO UPDATE SET date = EXCLUDED.date, time = EXCLUDED.time
-      RETURNING schedule_id;
-      `,
-      [blog_id, date, time]
-    );
+      RETURNING schedule_id
+    `;
 
     return res.status(201).json({
       message: "Blog scheduled successfully",
-      schedule_id: result.rows[0].schedule_id
+      schedule_id: result[0].schedule_id
     });
   } catch (error) {
     console.log(error);
@@ -110,5 +115,4 @@ router.post("/post/schedule_blog", async (req, res) => {
   }
 });
 
-
-module.exports=router;
+module.exports = router;

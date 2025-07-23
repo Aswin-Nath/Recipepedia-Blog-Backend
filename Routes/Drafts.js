@@ -1,21 +1,21 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
+const sql = require("../Configs/db");
 
-const pool=require("../Configs/db");
-
-
-router.get("/users/drafts",async (req,res)=>{
-  const {userId}=req.query;
-  try{
-    const query=await pool.query("select * from blogs where status='Draft' and user_id=$1",[userId]);
-    return res.status(200).json({drafts:query.rows});
+router.get("/users/drafts", async (req, res) => {
+  const { userId } = req.query;
+  try {
+    const query = await sql`
+      SELECT * FROM blogs WHERE status = 'Draft' AND user_id = ${userId}
+    `;
+    return res.status(200).json({ drafts: query });
   }
-  catch(error){
+  catch (error) {
     console.log(error);
-    return res.status(400).json({message:error.message})
+    return res.status(400).json({ message: error.message });
   }
-})
+});
 
-module.exports=router;
+module.exports =router;

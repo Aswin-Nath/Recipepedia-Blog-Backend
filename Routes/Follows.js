@@ -1,22 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const { UserSockets } = require("../Sockets/Sockets");
-const pool = require("../Configs/db");
+const sql = require("../Configs/db");
 
 // 1. Get people you may want to follow
 router.get("/suggestions/:id", async (req, res) => {
   const userId = req.params.id;
   try {
-    const result = await pool.query(
-      `SELECT *
-       FROM users
-       WHERE user_id != $1
-         AND user_id NOT IN (
-           SELECT following_id FROM follows WHERE follower_id = $1
-         )`,
-      [userId]
-    );
-    res.json(result.rows);
+    const result = await sql`
+      SELECT *
+      FROM users
+      WHERE user_id != ${userId}
+        AND user_id NOT IN (
+          SELECT following_id FROM follows WHERE follower_id = ${userId}
+        )
+    `;
+    res.json(result);
   } catch (err) {
     console.error("Error fetching suggestions:", err);
     res.status(500).json({ error: "Failed to fetch suggestions" });
@@ -32,18 +31,16 @@ router.post("/connect", async (req, res) => {
   }
 
   try {
-    await pool.query(
-      `INSERT INTO follows (follower_id, following_id)
-       VALUES ($1, $2)
-       ON CONFLICT DO NOTHING`,
-      [follower_id, following_id]
-    );
+    await sql`
+      INSERT INTO follows (follower_id, following_id)
+      VALUES (${follower_id}, ${following_id})
+      ON CONFLICT DO NOTHING
+    `;
     // Send socket notification if online
     // Insert into new notifications table
-    await pool.query(
-      "INSERT INTO notifications (user_id, type, follower_id) VALUES ($1, 'follow', $2)",
-      [following_id, follower_id]
-    );
+    await sql`
+      INSERT INTO notifications (user_id, type, follower_id) VALUES (${following_id}, 'follow', ${follower_id})
+    `;
     const ownerSocket = UserSockets.get(following_id);
     if (ownerSocket) {
       ownerSocket.emit("notify", {
@@ -61,14 +58,13 @@ router.post("/connect", async (req, res) => {
 router.get("/followers/:id", async (req, res) => {
   const userId = req.params.id;
   try {
-    const result = await pool.query(
-      `SELECT *
-       FROM follows f
-       JOIN users u ON f.follower_id = u.user_id
-       WHERE f.following_id = $1`,
-      [userId]
-    );
-    res.json(result.rows);
+    const result = await sql`
+      SELECT *
+      FROM follows f
+      JOIN users u ON f.follower_id = u.user_id
+      WHERE f.following_id = ${userId}
+    `;
+    res.json(result);
   } catch (err) {
     console.error("Error fetching followers:", err);
     res.status(500).json({ error: "Failed to get followers" });
@@ -79,14 +75,13 @@ router.get("/followers/:id", async (req, res) => {
 router.get("/following/:id", async (req, res) => {
   const userId = req.params.id;
   try {
-    const result = await pool.query(
-      `SELECT *
-       FROM follows f
-       JOIN users u ON f.following_id = u.user_id
-       WHERE f.follower_id = $1`,
-      [userId]
-    );
-    res.json(result.rows);
+    const result = await sql`
+      SELECT *
+      FROM follows f
+      JOIN users u ON f.following_id = u.user_id
+      WHERE f.follower_id = ${userId}
+    `;
+    res.json(result);
   } catch (err) {
     console.error("Error fetching following:", err);
     res.status(500).json({ error: "Failed to get following" });
@@ -103,15 +98,13 @@ router.post("/remove-follower", async (req, res) => {
 
   try {
     // Remove from follows
-    await pool.query(
-      `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
-      [follower_id, user_id]
-    );
+    await sql`
+      DELETE FROM follows WHERE follower_id = ${follower_id} AND following_id = ${user_id}
+    `;
     // Remove follow notification from new notifications table
-    await pool.query(
-      `DELETE FROM notifications WHERE type = 'follow' AND user_id = $1 AND follower_id = $2`,
-      [user_id, follower_id]
-    );
+    await sql`
+      DELETE FROM notifications WHERE type = 'follow' AND user_id = ${user_id} AND follower_id = ${follower_id}
+    `;
     res.json({ message: "Follower removed and notification deleted" });
   } catch (err) {
     console.error("Error removing follower:", err);
@@ -125,15 +118,13 @@ router.post("/unfollow", async (req, res) => {
 
   try {
     // Remove from follows
-    await pool.query(
-      `DELETE FROM follows WHERE follower_id = $1 AND following_id = $2`,
-      [follower_id, following_id]
-    );
+    await sql`
+      DELETE FROM follows WHERE follower_id = ${follower_id} AND following_id = ${following_id}
+    `;
     // Remove follow notification from new notifications table
-    await pool.query(
-      `DELETE FROM notifications WHERE type = 'follow' AND user_id = $1 AND follower_id = $2`,
-      [following_id, follower_id]
-    );
+    await sql`
+      DELETE FROM notifications WHERE type = 'follow' AND user_id = ${following_id} AND follower_id = ${follower_id}
+    `;
     res.json({ message: "Unfollowed and notification deleted" });
   } catch (err) {
     console.error("Error unfollowing:", err);

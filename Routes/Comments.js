@@ -1,17 +1,19 @@
-const express=require("express");
+const express = require("express");
 
-const router=express.Router();
+const router = express.Router();
 
-const {UserSockets} = require("../Sockets/Sockets");
-const pool=require("../Configs/db");
+const { UserSockets } = require("../Sockets/Sockets");
+const sql = require("../Configs/db");
 
-const {commentLimiter}=require("../Middleware/rateLimiters");
+const { commentLimiter } = require("../Middleware/rateLimiters");
 
 router.get("/get/:blog_id/comment", async (req, res) => {
   try {
-    const {blog_id}=req.params;
-    const result = await pool.query("SELECT * FROM comments where blog_id=$1",[blog_id]);
-    return res.status(201).json({ message: result.rows });
+    const { blog_id } = req.params;
+    const result = await sql`
+      SELECT * FROM comments WHERE blog_id = ${blog_id}
+    `;
+    return res.status(201).json({ message: result });
   } catch (error) {
     return res.status(400).json({ message: error.message });
   }
@@ -21,29 +23,26 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
   const { blog_id, userId, content, parent_id } = req.body;
 
   try {
-    const result = await pool.query(
-      `INSERT INTO comments (blog_id, user_id, content, parent_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [blog_id, userId, content, parent_id || null]
-    );
+    const result = await sql`
+      INSERT INTO comments (blog_id, user_id, content, parent_id)
+      VALUES (${blog_id}, ${userId}, ${content}, ${parent_id || null})
+      RETURNING *
+    `;
 
-    const newComment = result.rows[0];
+    const newComment = result[0];
 
-    const blogQuery = await pool.query(
-      `SELECT user_id FROM blogs WHERE blog_id = $1`,
-      [blog_id]
-    );
-    if (blogQuery.rowCount > 0) {
-      const blogOwnerId = blogQuery.rows[0].user_id;
+    const blogQuery = await sql`
+      SELECT user_id FROM blogs WHERE blog_id = ${blog_id}
+    `;
+    if (blogQuery.length > 0) {
+      const blogOwnerId = blogQuery[0].user_id;
 
       if (blogOwnerId) {
         // 1️⃣ Save to comment_notifications
-        await pool.query(
-          `INSERT INTO notifications (user_id, type, blog_id, comment_id)
-           VALUES ($1, 'comment', $2, $3)`,
-          [blogOwnerId, blog_id, newComment.comment_id]
-        );
+        await sql`
+          INSERT INTO notifications (user_id, type, blog_id, comment_id)
+          VALUES (${blogOwnerId}, 'comment', ${blog_id}, ${newComment.comment_id})
+        `;
 
         // 2️⃣ Emit to blog owner via socket
         const ownerSocket = UserSockets.get(blogOwnerId);
@@ -55,7 +54,6 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
             comment: newComment,
           });
         } else {
-          
           console.log(`⚠️ No active socket for blog owner ${blogOwnerId}`);
         }
       }
@@ -71,6 +69,4 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
   }
 });
 
-
-
-module.exports=router;
+module.exports = router;

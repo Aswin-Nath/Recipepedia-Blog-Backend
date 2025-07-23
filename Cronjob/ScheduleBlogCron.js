@@ -2,8 +2,8 @@ const express = require("express");
 
 const router = express.Router();
 
-const pool = require("../Configs/db");
-const {UserSockets}=require("../Sockets/Sockets");
+const sql = require("../Configs/db");
+const { UserSockets } = require("../Sockets/Sockets");
 
 router.get("/scheduler/now", async (req, res) => {
   try {
@@ -19,13 +19,11 @@ router.get("/scheduler/now", async (req, res) => {
     const timeStart = `${hour}:${minute}:00`;
     const timeEnd = `${hour}:${nextMinute}:00`;
 
+    const scheduledQuery = await sql`
+      SELECT * FROM scheduled_blogs WHERE date = ${dateStr} AND time >= ${timeStart} AND time < ${timeEnd}
+    `;
 
-    const scheduledQuery = await pool.query(
-      "SELECT * FROM scheduled_blogs WHERE date = $1 AND time >= $2 AND time < $3",
-      [dateStr, timeStart, timeEnd]
-    );
-
-    const scheduled = scheduledQuery.rows;
+    const scheduled = scheduledQuery;
 
     if (!scheduled || scheduled.length === 0) {
       return res.json({ scheduled: [], message: "No blogs to schedule at this time." });
@@ -33,21 +31,19 @@ router.get("/scheduler/now", async (req, res) => {
 
     const blogIds = scheduled.map((row) => row.blog_id);
 
-    const userIdQuery = await pool.query(
-      "SELECT blog_id, user_id FROM blogs WHERE blog_id = ANY($1::int[])",
-      [blogIds]
-    );
-    const blogOwnerRows = userIdQuery.rows;
+    const userIdQuery = await sql`
+      SELECT blog_id, user_id FROM blogs WHERE blog_id = ANY(${blogIds})
+    `;
+    const blogOwnerRows = userIdQuery;
 
     for (const row of blogOwnerRows) {
       const { user_id: ownerId, blog_id } = row;
 
       // 1️⃣ Insert into blog_notifications
-      await pool.query(
-        `INSERT INTO notifications (user_id, type, blog_id)
-         VALUES ($1, 'blog', $2)`,
-        [ownerId, blog_id]
-      );
+      await sql`
+        INSERT INTO notifications (user_id, type, blog_id)
+        VALUES (${ownerId}, 'blog', ${blog_id})
+      `;
 
       // 2️⃣ Emit real-time socket if online
       const UserSocket = UserSockets.get(ownerId);
@@ -62,15 +58,13 @@ router.get("/scheduler/now", async (req, res) => {
       }
     }
 
-    await pool.query(
-      "UPDATE blogs SET status = 'Publish' WHERE blog_id = ANY($1::int[])",
-      [blogIds]
-    );
+    await sql`
+      UPDATE blogs SET status = 'Publish' WHERE blog_id = ANY(${blogIds})
+    `;
 
-    await pool.query(
-      "DELETE FROM scheduled_blogs WHERE blog_id = ANY($1::int[])",
-      [blogIds]
-    );
+    await sql`
+      DELETE FROM scheduled_blogs WHERE blog_id = ANY(${blogIds})
+    `;
 
     res.json({
       message: `✅ ${blogIds.length} blog(s) published and schedule(s) cleared.`,
@@ -84,6 +78,5 @@ router.get("/scheduler/now", async (req, res) => {
     });
   }
 });
-
 
 module.exports = router;
