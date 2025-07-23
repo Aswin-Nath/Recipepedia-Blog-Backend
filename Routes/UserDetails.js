@@ -28,34 +28,52 @@ router.post("/update-user-details", AuthVerify, async (req, res) => {
   }
 
   try {
-    // Remove photo if requested and no new profile_url provided
-    if (removePhoto === true && profile_url === undefined) {
-      await sql`
-        UPDATE users SET profile_url = NULL WHERE user_id = ${userId}
-      `;
+    const fields = [];
+    const values = [];
+    let paramIndex = 1; // For $1, $2, etc.
+
+    if (user_name !== undefined) {
+      fields.push(`user_name = $${paramIndex++}`);
+      values.push(user_name);
     }
 
-    // Build dynamic update for other fields
-    const updates = [];
-    if (user_name !== undefined) updates.push(sql`user_name = ${user_name}`);
-    if (user_mail !== undefined) updates.push(sql`user_mail = ${user_mail}`);
-    if (profile_url !== undefined) updates.push(sql`profile_url = ${profile_url}`);
+    if (user_mail !== undefined) {
+      fields.push(`user_mail = $${paramIndex++}`);
+      values.push(user_mail);
+    }
 
-    if (updates.length === 0) {
+    if (removePhoto === true) {
+      fields.push(`profile_url = NULL`);
+    } else if (profile_url !== undefined) {
+      fields.push(`profile_url = $${paramIndex++}`);
+      values.push(profile_url);
+    }
+
+    if (fields.length === 0) {
       return res.status(400).json({ message: "No fields to update" });
     }
 
-    await sql`
+    // Final param is always userId
+    fields.push(`user_id = $${paramIndex}`);
+    values.push(userId);
+
+    const updateQuery = `
       UPDATE users
-      SET ${sql.join(updates, sql`, `)}
-      WHERE user_id = ${userId}
+      SET ${fields.slice(0, -1).join(', ')}
+      WHERE ${fields.slice(-1)}
     `;
 
-    return res.status(200).json({ message: "User details updated successfully" });
-  } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: error.message });
+    await sql.query(updateQuery, values); // ✅ Use sql.query with values
+
+    return res.status(200).json({ message: "User updated successfully" });
+  } catch (err) {
+    console.error("Update Error:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 });
 
-module.exports =router;
+
+
+
+
+module.exports = router;
