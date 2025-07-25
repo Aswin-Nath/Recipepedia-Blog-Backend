@@ -6,13 +6,21 @@ const { UserSockets } = require("../../Sockets/Sockets");
 const sql = require("../../Configs/db");
 
 const { commentLimiter } = require("../../Middleware/rateLimiters");
-// Can Cache
+const Redisclient = require("../../Redis/RedisClient");
+//  Cached
 router.get("/get/:blog_id/comment", async (req, res) => {
   try {
     const { blog_id } = req.params;
+    const Key=`comments#${blog_id}`;
+    if(Redisclient.exists(Key)){
+      const cachedData=await Redisclient.get(Key);
+      return res.status(201).json({ message: JSON.parse(cachedData) }); 
+    }
+
     const result = await sql`
       SELECT * FROM comments WHERE blog_id = ${blog_id}
     `;
+    await Redisclient.set(Key,JSON.stringify(result));
     return res.status(201).json({ message: result });
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -20,8 +28,8 @@ router.get("/get/:blog_id/comment", async (req, res) => {
 });
 
 router.post("/add/comment", commentLimiter, async (req, res) => {
-  const { blog_id, userId, content, parent_id } = req.body;
-  
+  const { blog_id, userId, content, parent_id,ownderId } = req.body;
+
   try {
     const result = await sql`
       INSERT INTO comments (blog_id, user_id, content, parent_id)
@@ -46,6 +54,9 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
 
         // 2️⃣ Emit to blog owner via socket
         const ownerSocket = UserSockets.get(blogOwnerId);
+
+        await Redisclient.del(`notifications#${ownderId}`)
+        await Redisclient.del(`comments#${blog_id}`);
         if (ownerSocket) {
           ownerSocket.emit("notify", {
             type: "comment",

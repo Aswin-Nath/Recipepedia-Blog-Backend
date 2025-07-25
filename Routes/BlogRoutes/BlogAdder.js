@@ -6,6 +6,7 @@ const sql = require("../../Configs/db");
 
 const { postBlogLimiter } = require("../../Middleware/rateLimiters");
 const { AuthVerify } = require("../../Middleware/auth");
+const Redisclient = require("../../Redis/RedisClient");
 
 router.post("/blogs/images", async (req, res) => {
     const { blog_id, image_url } = req.body;
@@ -47,12 +48,14 @@ router.post("/blogs/videos", async (req, res) => {
 
 router.post("/blogs", postBlogLimiter, AuthVerify, async (req, res) => {
     const { title, content, user_id, difficulty, ingredients, categories, type } = req.body;
+
     try {
         const result = await sql`
             INSERT INTO blogs (title, content, user_id, difficulty, ingredients, categories, createdat, likes, status)
             VALUES (${title}, ${content}, ${user_id}, ${difficulty}, ${ingredients}, ${categories}, CURRENT_TIMESTAMP, 0, ${type})
             RETURNING blog_id
         `;
+        await Redisclient.del(`user_blogs#${user_id}`)
         return res.status(201).json({
             message: "Blog created successfully",
             blog_id: result[0].blog_id

@@ -1,7 +1,7 @@
-// const redis=require("redis");
+const redis=require("redis");
 
-// const Redisclient=redis.createClient();
+const Redisclient=redis.createClient();
 
-// Redisclient.connect().catch(console.error);
+Redisclient.connect().catch(console.error);
 
-// module.exports=Redisclient;
+module.exports=Redisclient;

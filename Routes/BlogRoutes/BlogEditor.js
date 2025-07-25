@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const sql = require("../../Configs/db");
+const Redisclient = require("../../Redis/RedisClient");
 
 router.put("/edit/blogs/images/", async (req, res) => {
   const { delete_image_id } = req.body;
@@ -49,7 +50,7 @@ router.put("/edit/blogs/videos", async (req, res) => {
 
 router.put("/blogs/:blog_id", async (req, res) => {
   const { blog_id } = req.params;
-  const { title, content, difficulty, ingredients, categories, status } = req.body;
+  const { title, content, difficulty, ingredients, categories, status,userId } = req.body;
 
   try {
     const blogCheck = await sql`
@@ -59,7 +60,11 @@ router.put("/blogs/:blog_id", async (req, res) => {
     if (!blogCheck || blogCheck.length === 0) {
       return res.status(404).json({ error: "Blog not found" });
     }
-
+    const Key1=`user_blogs#${userId}`
+    const key2=`blog#${blog_id}`
+    await Redisclient.del(key2);
+    await Redisclient.del(Key1);
+    console.log("deleted",Key1,key2);
     const result = await sql`
       UPDATE blogs
       SET title = ${title},
@@ -87,16 +92,21 @@ router.put("/blogs/:blog_id", async (req, res) => {
 
 router.delete("/blogs/:blog_id", async (req, res) => {
   const { blog_id } = req.params;
-
+  const userId=req.body.userId;
   try {
     const result = await sql`
       DELETE FROM blogs WHERE blog_id = ${blog_id} RETURNING *
     `;
 
+
     if (!result || result.length === 0) {
       return res.status(404).json({ error: "Blog not found" });
     }
-
+    const Key1=`user_blogs#${userId}`
+    const key2=`blog#${blog_id}`
+    await Redisclient.del(key2);
+    await Redisclient.del(Key1);
+    console.log("deleted",Key1,key2);
     res.json({
       message: "Blog and all related content deleted successfully",
       deletedBlog: result[0]

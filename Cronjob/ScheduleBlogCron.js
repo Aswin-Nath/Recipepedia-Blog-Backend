@@ -4,6 +4,7 @@ const router = express.Router();
 
 const sql = require("../Configs/db");
 const { UserSockets } = require("../Sockets/Sockets");
+const Redisclient = require("../Redis/RedisClient");
 
 router.get("/scheduler/now", async (req, res) => {
   try {
@@ -44,7 +45,8 @@ router.get("/scheduler/now", async (req, res) => {
         INSERT INTO notifications (user_id, type, blog_id)
         VALUES (${ownerId}, 'blog', ${blog_id})
       `;
-
+      await Redisclient.del(`user_blogs#${ownerId}`);
+      await Redisclient.del(`notifications#${ownerId}`);
       // 2️⃣ Emit real-time socket if online
       const UserSocket = UserSockets.get(ownerId);
       if (UserSocket) {
@@ -65,7 +67,7 @@ router.get("/scheduler/now", async (req, res) => {
     await sql`
       DELETE FROM scheduled_blogs WHERE blog_id = ANY(${blogIds})
     `;
-
+     
     res.json({
       message: `✅ ${blogIds.length} blog(s) published and schedule(s) cleared.`,
       scheduled: blogIds,

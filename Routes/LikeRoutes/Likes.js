@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const sql = require("../../Configs/db");
+const Redisclient = require("../../Redis/RedisClient");
 
 router.post("/add/blogs/likes/", async (req, res) => {
   const { userId, blog_id } = req.body;
@@ -17,8 +18,8 @@ router.post("/add/blogs/likes/", async (req, res) => {
   }
 });
 
-router.post("/get/blogs/likes/", async (req, res) => {
-  const { userId, blog_id } = req.body;
+router.get("/get/blogs/like_status/", async (req, res) => {
+  const { userId, blog_id } = req.query;
 
   try {
     const query = await sql`
@@ -44,11 +45,16 @@ router.post("/get/blogs/likes/", async (req, res) => {
   }
 });
 
-// Can Cache
+// Cached
 router.get("/get/blogs/likes_count", async (req, res) => {
   const { user_Id, blog_id } = req.query;
-  
+  const Key=`likes#${user_Id}#${blog_id}`
   try {
+    const KeyExists=await Redisclient.exists(Key);
+    if(KeyExists){
+      const cachedData=await Redisclient.get(Key);
+      return res.status(200).json({ count:parseInt(cachedData) });
+    }
     const result = await sql`
       SELECT COUNT(*) AS count 
       FROM likes 
@@ -56,7 +62,7 @@ router.get("/get/blogs/likes_count", async (req, res) => {
     `;
     console.log("puthusu",result[0],user_Id,blog_id);
     const count = result[0]?.count || 0;
-
+    await Redisclient.set(Key,count);
     return res.status(200).json({ count });
   } catch (error) {
     console.log("Error fetching likes count:", error);
@@ -64,13 +70,14 @@ router.get("/get/blogs/likes_count", async (req, res) => {
   }
 });
 
-
 router.put("/edit/blogs/likes", async (req, res) => {
-  const { userId, blog_id, newLikeStatus } = req.body;
+  const { userId, blog_id } = req.body;
+  const Key=`likes#${userId}#${blog_id}`;
   try {
     const query = await sql`
       UPDATE likes SET status = 1 - status WHERE user_id = ${userId} AND blog_id = ${blog_id} RETURNING status
     `;
+    await Redisclient.del(Key);
     return res.status(200).json({
       message: "Successfully updated the like",
       status: query[0].status
@@ -83,7 +90,5 @@ router.put("/edit/blogs/likes", async (req, res) => {
     });
   }
 });
-
-
 
 module.exports =router;
