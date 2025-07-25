@@ -4,6 +4,7 @@ const router = express.Router();
 
 const sql = require("../../Configs/db");
 
+// Can Cache
 router.get("/users/drafts", async (req, res) => {
   const { userId } = req.query;
   try {

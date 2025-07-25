@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const sql = require("../../Configs/db");
 
+// Can Cache
+
 // Get all notifications for a user (all types, sorted by time)
 router.get("/notifications/all", async (req, res) => {
   const { userId } = req.query;

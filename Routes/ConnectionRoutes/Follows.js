@@ -55,6 +55,8 @@ router.post("/connect", async (req, res) => {
 });
 
 // 3. Get followers of a user
+// can cache
+
 router.get("/followers/:id", async (req, res) => {
   const userId = req.params.id;
   try {
@@ -72,8 +74,10 @@ router.get("/followers/:id", async (req, res) => {
 });
 
 // 4. Get people the user is following
+// Can Cache
 router.get("/following/:id", async (req, res) => {
   const userId = req.params.id;
+
   try {
     const result = await sql`
       SELECT *

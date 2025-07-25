@@ -6,7 +6,7 @@ const { UserSockets } = require("../../Sockets/Sockets");
 const sql = require("../../Configs/db");
 
 const { commentLimiter } = require("../../Middleware/rateLimiters");
-
+// Can Cache
 router.get("/get/:blog_id/comment", async (req, res) => {
   try {
     const { blog_id } = req.params;
@@ -21,7 +21,7 @@ router.get("/get/:blog_id/comment", async (req, res) => {
 
 router.post("/add/comment", commentLimiter, async (req, res) => {
   const { blog_id, userId, content, parent_id } = req.body;
-
+  
   try {
     const result = await sql`
       INSERT INTO comments (blog_id, user_id, content, parent_id)

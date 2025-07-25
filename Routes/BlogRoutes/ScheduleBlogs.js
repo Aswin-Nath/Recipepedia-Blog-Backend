@@ -40,6 +40,7 @@ router.get("/get/scheduled_blogs/", async (req, res) => {
   }
 });
 
+// Can Cache
 router.get("/get/scheduled_blog/", async (req, res) => {
   try {
     const { blog_id } = req.query;
@@ -67,7 +68,7 @@ router.get("/get/scheduled_blog/", async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 });
-
+// Can Cache
 router.get("/get/scheduled_time", async (req, res) => {
   try {
     const { blog_id } = req.query;

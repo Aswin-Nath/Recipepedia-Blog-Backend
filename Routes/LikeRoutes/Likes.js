@@ -44,9 +44,10 @@ router.post("/get/blogs/likes/", async (req, res) => {
   }
 });
 
+// Can Cache
 router.get("/get/blogs/likes_count", async (req, res) => {
   const { user_Id, blog_id } = req.query;
-
+  
   try {
     const result = await sql`
       SELECT COUNT(*) AS count 

@@ -3,7 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const sql = require("../../Configs/db");
-
+// Can Cache
 router.get("/bookmarks", async (req, res) => {
   const { userId } = req.query;
 
@@ -20,12 +20,12 @@ router.get("/bookmarks", async (req, res) => {
     return res.status(400).json({ message: error.message, bookmarks: [] });
   }
 });
-
+// Can Cache
 router.get("/bookmark-checker", async (req, res) => {
   console.log("1st",req.query);
   const user_id=parseInt(req.query.user_id);
   const blog_id  = parseInt(req.query.blog_id);
-
+  
   try {
     const query = await sql`
       SELECT * FROM bookmarks WHERE blog_id = ${blog_id} AND user_id = ${user_id}
