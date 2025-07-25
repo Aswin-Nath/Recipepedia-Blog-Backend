@@ -2,10 +2,10 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
-const { postBlogLimiter } = require("../Middleware/rateLimiters");
-const { AuthVerify } = require("../Middleware/auth");
+const { postBlogLimiter } = require("../../Middleware/rateLimiters");
+const { AuthVerify } = require("../../Middleware/auth");
 
 router.post("/blogs/images", async (req, res) => {
     const { blog_id, image_url } = req.body;

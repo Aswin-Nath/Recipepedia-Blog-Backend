@@ -2,10 +2,10 @@ const express = require("express");
 
 const router = express.Router();
 
-const { UserSockets } = require("../Sockets/Sockets");
-const sql = require("../Configs/db");
+const { UserSockets } = require("../../Sockets/Sockets");
+const sql = require("../../Configs/db");
 
-const { commentLimiter } = require("../Middleware/rateLimiters");
+const { commentLimiter } = require("../../Middleware/rateLimiters");
 
 router.get("/get/:blog_id/comment", async (req, res) => {
   try {

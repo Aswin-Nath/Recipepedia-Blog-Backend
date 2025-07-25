@@ -7,19 +7,19 @@ require("./Sockets/CreateSocketByID");
 
 
 // Route imports with camelCase
-const authRouter = require("./Routes/authRoutes");
-const followRouter = require("./Routes/Follows");
-const scheduleRouter = require("./Routes/ScheduleBlogs");
-const reportRouter = require("./Routes/Report");
-const likeRouter = require("./Routes/Likes");
-const bookmarkRouter = require("./Routes/Bookmarks");
-const draftRouter = require("./Routes/Drafts");
-const commentRouter = require("./Routes/Comments");
-const blogAdderRouter = require("./Routes/BlogAdder");
-const blogEditorRouter = require("./Routes/BlogEditor");
-const blogGetterRouter = require("./Routes/BlogGetters");
-const detailsRouter=require("./Routes/UserDetails");
-const notificationsRouter=require("./Routes/Notifications");
+const authRouter = require("./Routes/AuthRoutes/authRoutes");
+const followRouter = require("./Routes/ConnectionRoutes/Follows");
+const scheduleRouter = require("./Routes/BlogRoutes/ScheduleBlogs");
+const reportRouter = require("./Routes/ReportRoutes/Report");
+const likeRouter = require("./Routes/LikeRoutes/Likes");
+const bookmarkRouter = require("./Routes/BookmarkRoutes/Bookmarks");
+const draftRouter = require("./Routes/DraftRoutes/Drafts");
+const commentRouter=require("./Routes/CommentRoutes/Comments")
+const blogAdderRouter = require("./Routes/BlogRoutes/BlogAdder");
+const blogEditorRouter = require("./Routes/BlogRoutes/BlogEditor");
+const blogGetterRouter = require("./Routes/BlogRoutes/BlogGetters");
+const detailsRouter=require("./Routes/UserRoutes/UserDetails");
+const notificationsRouter=require("./Routes/NotificationRoutes/Notifications");
 const scheduleBlogRouter=require("./Cronjob/ScheduleBlogCron");
 // Route usages with camelCase
 app.use("/api", authRouter);  

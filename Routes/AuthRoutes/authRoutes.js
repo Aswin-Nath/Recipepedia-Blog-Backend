@@ -1,12 +1,12 @@
 const express = require("express");
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const router = express.Router();
 const jwt_key = process.env.SECRET_KEY;
 const encrypy = require("bcryptjs");
-const { authLimiter } = require("../Middleware/rateLimiters");
+const { authLimiter } = require("../../Middleware/rateLimiters");
 
 router.post("/signup", authLimiter, async (req, res) => {
   const { username, email, password } = req.body;

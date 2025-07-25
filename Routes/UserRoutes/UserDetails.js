@@ -2,9 +2,9 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
-const { AuthVerify } = require("../Middleware/auth");
+const { AuthVerify } = require("../../Middleware/auth");
 
 router.get("/user-details", AuthVerify, async (req, res) => {
   try {

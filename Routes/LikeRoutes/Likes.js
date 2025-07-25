@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
 router.post("/add/blogs/likes/", async (req, res) => {
   const { userId, blog_id } = req.body;

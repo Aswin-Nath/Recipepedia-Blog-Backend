@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
 router.put("/edit/blogs/images/", async (req, res) => {
   const { delete_image_id } = req.body;

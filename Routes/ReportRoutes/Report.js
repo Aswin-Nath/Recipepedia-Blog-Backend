@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
 router.post("/post/report-posts", async (req, res) => {
   try {

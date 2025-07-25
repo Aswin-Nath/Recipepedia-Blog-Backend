@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
-const { UserSockets } = require("../Sockets/Sockets");
-const sql = require("../Configs/db");
+const { UserSockets } = require("../../Sockets/Sockets");
+const sql = require("../../Configs/db");
 
 // 1. Get people you may want to follow
 router.get("/suggestions/:id", async (req, res) => {

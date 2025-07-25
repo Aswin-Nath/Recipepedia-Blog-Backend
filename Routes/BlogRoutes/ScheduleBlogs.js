@@ -2,7 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 
-const sql = require("../Configs/db");
+const sql = require("../../Configs/db");
 
 router.get("/get/scheduled_blogs/", async (req, res) => {
   try {
