@@ -48,21 +48,20 @@ router.get("/get/blogs/like_status/", async (req, res) => {
 // Cached
 router.get("/get/blogs/likes_count", async (req, res) => {
   const { user_Id, blog_id } = req.query;
-  const Key=`likes#${user_Id}#${blog_id}`
+  const Key = `likes#${user_Id}#${blog_id}`;
   try {
-    const KeyExists=await Redisclient.exists(Key);
-    if(KeyExists){
-      const cachedData=await Redisclient.get(Key);
-      return res.status(200).json({ count:parseInt(cachedData) });
+    const cachedData = await Redisclient.get(Key);
+    if (cachedData !== null) {
+      return res.status(200).json({ count: parseInt(cachedData) });
     }
     const result = await sql`
       SELECT COUNT(*) AS count 
       FROM likes 
       WHERE status = 1 AND user_id = ${user_Id} AND blog_id = ${blog_id}
     `;
-    console.log("puthusu",result[0],user_Id,blog_id);
+    console.log("puthusu", result[0], user_Id, blog_id);
     const count = result[0]?.count || 0;
-    await Redisclient.set(Key,count);
+    await Redisclient.set(Key, count);
     return res.status(200).json({ count });
   } catch (error) {
     console.log("Error fetching likes count:", error);

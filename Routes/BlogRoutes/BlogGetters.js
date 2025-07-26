@@ -53,10 +53,9 @@ router.get("/users/blogs", async (req, res) => {
   const Key = `user_blogs#${userId}`;
 
   try {
-    const exists = await Redisclient.exists(Key); 
+    const cachedData = await Redisclient.get(Key);
 
-    if (exists) {
-      const cachedData = await Redisclient.get(Key);
+    if (cachedData !== null) {
       console.log("Got cached");
       return res.status(200).json({ blogs: JSON.parse(cachedData) });
     }
@@ -72,7 +71,6 @@ router.get("/users/blogs", async (req, res) => {
     return res.status(400).json({ message: error.message, blogs: [] });
   }
 });
-
 
 router.get("/get/blogs", async (req, res) => {
   const { search } = req.query;
@@ -98,10 +96,9 @@ router.get("/blogs/:blog_id", async (req, res) => {
   const key = `blog#${blog_id}`;
 
   try {
-    const keyExists = await Redisclient.exists(key);
+    const cached = await Redisclient.get(key);
 
-    if (keyExists) {
-      const cached = await Redisclient.get(key);
+    if (cached !== null) {
       const blog = JSON.parse(cached);
       console.log("cached");
       return res.status(200).json({ message: "Retrieved from cache", blog });
@@ -124,5 +121,4 @@ router.get("/blogs/:blog_id", async (req, res) => {
   }
 });
 
-
-module.exports = router;
+module.exports=router;

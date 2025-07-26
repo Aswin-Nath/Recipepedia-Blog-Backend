@@ -8,17 +8,16 @@ const Redisclient=require("../../Redis/RedisClient")
 // Get all notifications for a user (all types, sorted by time)
 router.get("/notifications/all", async (req, res) => {
   const { userId } = req.query;
-  const Key=`notifications#${userId}`;
+  const Key = `notifications#${userId}`;
   try {
-    const KeyExists=await Redisclient.exists(Key);
-    if(KeyExists){
-      const cachedData=await Redisclient.get(Key);
-      return res.status(200).json({ notifications: JSON.parsee(cachedData) });
+    const cachedData = await Redisclient.get(Key);
+    if (cachedData) {
+      return res.status(200).json({ notifications: JSON.parse(cachedData) });
     }
     const query = await sql`
       SELECT * FROM notifications WHERE user_id = ${userId} ORDER BY notification_time DESC
     `;
-    Redisclient.set(Key,JSON.stringify(query));
+    Redisclient.set(Key, JSON.stringify(query));
     return res.status(200).json({ notifications: query });
   } catch (error) {
     console.log(error);

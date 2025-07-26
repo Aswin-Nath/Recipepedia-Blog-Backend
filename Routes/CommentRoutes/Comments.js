@@ -11,16 +11,16 @@ const Redisclient = require("../../Redis/RedisClient");
 router.get("/get/:blog_id/comment", async (req, res) => {
   try {
     const { blog_id } = req.params;
-    const Key=`comments#${blog_id}`;
-    if(Redisclient.exists(Key)){
-      const cachedData=await Redisclient.get(Key);
+    const Key = `comments#${blog_id}`;
+    const cachedData = await Redisclient.get(Key);
+    if (cachedData !== null) {
       return res.status(201).json({ message: JSON.parse(cachedData) }); 
     }
 
     const result = await sql`
       SELECT * FROM comments WHERE blog_id = ${blog_id}
     `;
-    await Redisclient.set(Key,JSON.stringify(result));
+    await Redisclient.set(Key, JSON.stringify(result));
     return res.status(201).json({ message: result });
   } catch (error) {
     return res.status(400).json({ message: error.message });
