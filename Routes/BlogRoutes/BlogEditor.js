@@ -4,6 +4,7 @@ const router = express.Router();
 
 const sql = require("../../Configs/db");
 const Redisclient = require("../../Redis/RedisClient");
+const { UserSockets } = require("../../Sockets/Sockets"); // Added for socket notifications
 
 router.put("/edit/blogs/images/", async (req, res) => {
   const { delete_image_id } = req.body;
@@ -113,7 +114,6 @@ router.put("/blogs/:blog_id", async (req, res) => {
     const toDelete = existing.filter(m =>
       !incomingSet.has(`${m.mentioned_by}-${m.being_mentioned_id}`)
     );
-    console.log("DELINSERT",toInsert,toDelete);
     // Delete removed mentions
     for (const m of toDelete) {
       await sql`
@@ -122,12 +122,26 @@ router.put("/blogs/:blog_id", async (req, res) => {
       `;
     }
 
-    // Insert new mentions
+    // Insert new mentions and notify
     for (const m of toInsert) {
       await sql`
         INSERT INTO mentions (mentioned_by, being_mentioned_id, type, blog_id)
         VALUES (${userId}, ${m.id}, 'blogs', ${blog_id})
       `;
+      // Notify mentioned user if online
+      await sql`
+        INSERT INTO notifications (user_id, type, blog_id, follower_id, is_read, notification_time)
+        VALUES (${m.id}, 'blog_mention', ${blog_id}, ${userId}, false, NOW())
+      `;
+      await Redisclient.del(`notifications#${m.id}`);
+      const mentionedSocket = UserSockets.get(m.id);
+      console.log(mentionedSocket);
+      if (mentionedSocket) {
+        mentionedSocket.emit("notify", {
+          message: `You were mentioned in a blog update by user ${userId}`,
+          blog_id
+        });
+      }
     }
 
     // === Done ===

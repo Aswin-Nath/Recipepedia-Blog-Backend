@@ -17,6 +17,7 @@ router.get("/notifications/all", async (req, res) => {
     const query = await sql`
       SELECT * FROM notifications WHERE user_id = ${userId} ORDER BY notification_time DESC
     `;
+    console.log()
     Redisclient.set(Key, JSON.stringify(query));
     return res.status(200).json({ notifications: query });
   } catch (error) {

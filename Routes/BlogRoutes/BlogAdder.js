@@ -7,6 +7,7 @@ const sql = require("../../Configs/db");
 const { postBlogLimiter } = require("../../Middleware/rateLimiters");
 const { AuthVerify } = require("../../Middleware/auth");
 const Redisclient = require("../../Redis/RedisClient");
+const { UserSockets } = require("../../Sockets/Sockets"); // Added for socket notifications
 
 router.post("/blogs/images", async (req, res) => {
     const { blog_id, image_url } = req.body;
@@ -57,16 +58,27 @@ router.post("/blogs", postBlogLimiter, AuthVerify, async (req, res) => {
             RETURNING blog_id
         `;
         const blog_id = result[0].blog_id;
-
         // Add mentions if provided, avoid duplicates
         if (Array.isArray(mentions) && mentions.length > 0) {
-            // Get existing mentions for this blog (should be none for new blog, but safe)
             for (const m of mentions) {
-                console.log(m);
                 await sql`
                     INSERT INTO mentions (mentioned_by, being_mentioned_id, type, blog_id)
                     VALUES (${user_id}, ${m.id}, ${'blogs'}, ${blog_id})
                 `;
+                // Notify mentioned user if online
+                const mentionedSocket = UserSockets.get(m.id);
+                await Redisclient.del(`notifications#${m.id}`);
+                await sql`
+                INSERT INTO notifications (user_id, type, blog_id, follower_id, is_read, notification_time)
+                VALUES (${m.id}, 'blog_mention', ${blog_id}, ${user_id}, false, NOW())
+                `;
+                if (mentionedSocket) {
+                    
+                    mentionedSocket.emit("notify", {
+                        message: `You were mentioned in a blog by user ${user_id}`,
+                        blog_id
+                    });
+                }
             }
         }
 
