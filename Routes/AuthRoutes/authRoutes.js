@@ -62,8 +62,9 @@ router.post("/login", async (req, res) => {
       const db_hash = passQuery[0].password;
       const checker = await encrypy.compare(password, db_hash);
       if (checker) {
+        const user_name=userQuery[0].user_name;
         const token = jwt.sign(
-          { user_id: user_id, type: type },
+          { user_id: user_id, type: type,user_name:user_name },
           jwt_key,
           { expiresIn: "10h" }
         );

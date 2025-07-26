@@ -32,17 +32,6 @@ router.post("/post/report-comments", async (req, res) => {
   }
 });
 
-router.delete("/delete/comments/:comment_id", async (req, res) => {
-  try {
-    const { comment_id } = req.params;
-    await sql`
-      DELETE FROM comments WHERE comment_id = ${comment_id}
-    `;
-    return res.status(200).json({ message: "success" });
-  } catch (error) {
-    console.log(error);
-    return res.status(400).json({ message: error.message });
-  }
-});
+
 
 module.exports = router;

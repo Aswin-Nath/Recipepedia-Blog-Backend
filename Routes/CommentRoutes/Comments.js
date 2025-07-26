@@ -28,12 +28,12 @@ router.get("/get/:blog_id/comment", async (req, res) => {
 });
 
 router.post("/add/comment", commentLimiter, async (req, res) => {
-  const { blog_id, userId, content, parent_id,ownderId } = req.body;
+  const { blog_id, userId, content, parent_id,ownderId,userName } = req.body;
 
   try {
     const result = await sql`
-      INSERT INTO comments (blog_id, user_id, content, parent_id)
-      VALUES (${blog_id}, ${userId}, ${content}, ${parent_id || null})
+      INSERT INTO comments (blog_id, user_id,user_name, content, parent_id)
+      VALUES (${blog_id}, ${userId},${userName}, ${content}, ${parent_id || null})
       RETURNING *
     `;
 
@@ -76,6 +76,23 @@ router.post("/add/comment", commentLimiter, async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error inserting comment:", error);
+    return res.status(400).json({ message: error.message });
+  }
+});
+
+
+router.delete("/delete/comments/:comment_id/:blog_id", async (req, res) => {
+  try {
+    const { comment_id,blog_id } = req.params;
+    console.log(comment_id);
+    const Key=`comments#${blog_id}`
+    await Redisclient.del(Key);
+    await sql`
+      DELETE FROM comments WHERE comment_id = ${comment_id}
+    `;
+    return res.status(200).json({ message: "success" });
+  } catch (error) {
+    console.log(error);
     return res.status(400).json({ message: error.message });
   }
 });
