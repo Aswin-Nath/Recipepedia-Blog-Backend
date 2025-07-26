@@ -98,23 +98,35 @@ router.get("/blogs/:blog_id", async (req, res) => {
   try {
     const cached = await Redisclient.get(key);
 
+    let blog;
     if (cached !== null) {
-      const blog = JSON.parse(cached);
+      blog = JSON.parse(cached);
       console.log("cached");
-      return res.status(200).json({ message: "Retrieved from cache", blog });
-    }
-    console.log("No");
-    const query = await sql`
-      SELECT * FROM blogs WHERE blog_id = ${blog_id}
-    `;
-    
-    if (!query.length) {
-      return res.status(404).json({ message: "Blog not found" });
+    } else {
+      const query = await sql`
+        SELECT * FROM blogs WHERE blog_id = ${blog_id}
+      `;
+      if (!query.length) {
+        return res.status(404).json({ message: "Blog not found" });
+      }
+      blog = query[0];
+      await Redisclient.set(key, JSON.stringify(blog));
     }
 
-    await Redisclient.set(key, JSON.stringify(query[0]));
-    return res.status(200).json({ message: "Retrieved from DB", blog: query[0] });
-    
+    // Fetch mentions for this blog
+    const mentions = await sql`
+      SELECT u.user_id AS id, u.user_name AS name, u.profile_url AS avatar
+      FROM mentions m
+      JOIN users u ON m.being_mentioned_id = u.user_id
+      WHERE m.blog_id = ${blog_id}
+    `;
+
+    return res.status(200).json({
+      message: cached !== null ? "Retrieved from cache" : "Retrieved from DB",
+    blog,
+      mentions
+    });
+
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: "Error occurred while retrieving the blog" });

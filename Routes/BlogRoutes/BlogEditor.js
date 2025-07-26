@@ -50,21 +50,30 @@ router.put("/edit/blogs/videos", async (req, res) => {
 
 router.put("/blogs/:blog_id", async (req, res) => {
   const { blog_id } = req.params;
-  const { title, content, difficulty, ingredients, categories, status,userId } = req.body;
+  const {
+    title,
+    content,
+    difficulty,
+    ingredients,
+    categories,
+    status,
+    userId,
+    mentions = []
+  } = req.body;
 
   try {
-    const blogCheck = await sql`
-      SELECT * FROM blogs WHERE blog_id = ${blog_id}
-    `;
-
-    if (!blogCheck || blogCheck.length === 0) {
+    const blogCheck = await sql`SELECT * FROM blogs WHERE blog_id = ${blog_id}`;
+    if (!blogCheck?.length) {
       return res.status(404).json({ error: "Blog not found" });
     }
-    const Key1=`user_blogs#${userId}`
-    const key2=`blog#${blog_id}`
-    await Redisclient.del(key2);
-    await Redisclient.del(Key1);
-    console.log("deleted",Key1,key2);
+
+    // Invalidate cache
+    const keyUserBlogs = `user_blogs#${userId}`;
+    const keyBlog = `blog#${blog_id}`;
+    await Redisclient.del(keyUserBlogs);
+    await Redisclient.del(keyBlog);
+
+    // Update blog content
     const result = await sql`
       UPDATE blogs
       SET title = ${title},
@@ -76,6 +85,52 @@ router.put("/blogs/:blog_id", async (req, res) => {
       WHERE blog_id = ${blog_id}
       RETURNING *
     `;
+
+    // === Mentions Sync ===
+    // Get current mentions in DB
+    const existing = await sql`
+      SELECT mention_id, mentioned_by, being_mentioned_id
+      FROM mentions
+      WHERE blog_id = ${blog_id}
+    `;
+
+    // Create a Set of stringified current mentions in DB
+    const existingSet = new Set(
+      existing.map(m => `${m.mentioned_by}-${m.being_mentioned_id}`)
+    );
+
+    // Create a Set of incoming mentions from client
+    const incomingSet = new Set(
+      mentions.map(m => `${m.mentioned_by}-${m.being_mentioned_id}`)
+    );
+
+    // Determine mentions to insert (in request but not in DB)
+    const toInsert = mentions.filter(m =>
+      !existingSet.has(`${m.mentioned_by}-${m.being_mentioned_id}`)
+    );
+
+    // Determine mentions to delete (in DB but not in request)
+    const toDelete = existing.filter(m =>
+      !incomingSet.has(`${m.mentioned_by}-${m.being_mentioned_id}`)
+    );
+    console.log("DELINSERT",toInsert,toDelete);
+    // Delete removed mentions
+    for (const m of toDelete) {
+      await sql`
+        DELETE FROM mentions
+        WHERE mention_id = ${m.mention_id}
+      `;
+    }
+
+    // Insert new mentions
+    for (const m of toInsert) {
+      await sql`
+        INSERT INTO mentions (mentioned_by, being_mentioned_id, type, blog_id)
+        VALUES (${userId}, ${m.id}, 'blogs', ${blog_id})
+      `;
+    }
+
+    // === Done ===
 
     return res.status(200).json({
       message: "Blog updated successfully",

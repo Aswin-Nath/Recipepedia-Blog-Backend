@@ -20,6 +20,29 @@ router.get("/user-details", AuthVerify, async (req, res) => {
   }
 });
 
+// GET /api/users/search?q=alice
+router.get('/users/search', async (req, res) => {
+    const query = req.query.q;
+    if (!query) {
+        return res.json({ users: [] });
+    }
+    try {
+        // For PostgreSQL (ILIKE for case-insensitive search)
+        const users = await sql`
+            SELECT user_id AS id, user_name AS name, profile_url AS avatar
+            FROM users
+            WHERE user_name ILIKE ${query + '%'}
+            LIMIT 10
+        `;
+        res.json({
+            users
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// ...existing code...
 router.post("/update-user-details", AuthVerify, async (req, res) => {
   const { userId, user_name, user_mail, profile_url, removePhoto } = req.body;
 

@@ -46,8 +46,9 @@ router.post("/blogs/videos", async (req, res) => {
     }
 });
 
+// POST: Create blog and add mentions
 router.post("/blogs", postBlogLimiter, AuthVerify, async (req, res) => {
-    const { title, content, user_id, difficulty, ingredients, categories, type } = req.body;
+    const { title, content, user_id, difficulty, ingredients, categories, type, mentions } = req.body;
 
     try {
         const result = await sql`
@@ -55,10 +56,25 @@ router.post("/blogs", postBlogLimiter, AuthVerify, async (req, res) => {
             VALUES (${title}, ${content}, ${user_id}, ${difficulty}, ${ingredients}, ${categories}, CURRENT_TIMESTAMP, 0, ${type})
             RETURNING blog_id
         `;
-        await Redisclient.del(`user_blogs#${user_id}`)
+        const blog_id = result[0].blog_id;
+
+        // Add mentions if provided, avoid duplicates
+        if (Array.isArray(mentions) && mentions.length > 0) {
+            // Get existing mentions for this blog (should be none for new blog, but safe)
+            for (const m of mentions) {
+                console.log(m);
+                await sql`
+                    INSERT INTO mentions (mentioned_by, being_mentioned_id, type, blog_id)
+                    VALUES (${user_id}, ${m.id}, ${'blogs'}, ${blog_id})
+                `;
+            }
+        }
+
+        await Redisclient.del(`user_blogs#${user_id}`);
+
         return res.status(201).json({
             message: "Blog created successfully",
-            blog_id: result[0].blog_id
+            blog_id
         });
     } catch (error) {
         return res.status(400).json({
@@ -67,5 +83,4 @@ router.post("/blogs", postBlogLimiter, AuthVerify, async (req, res) => {
         });
     }
 });
-
 module.exports = router;
