@@ -1,7 +1,18 @@
-const redis=require("redis");
+// redisClient.js
+import { createClient } from 'redis';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const Redisclient=redis.createClient();
+const redisClient = createClient({
+  url: process.env.REDIS_URL,
+  socket: {
+    tls: true, // Required for Upstash
+  },
+  legacyMode: true, // Optional, useful if you use .get/.set the old way
+});
 
-Redisclient.connect().catch(console.error);
+redisClient.connect()
+  .then(() => console.log('✅ Connected to Upstash Redis'))
+  .catch(err => console.error('❌ Redis connection error:', err));
 
-module.exports=Redisclient;
+export default redisClient;
