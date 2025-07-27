@@ -5,20 +5,6 @@ const router = express.Router();
 const sql = require("../../Configs/db");
 const Redisclient = require("../../Redis/RedisClient");
 
-router.post("/add/blogs/likes/", async (req, res) => {
-  const { userId, blog_id } = req.body;
-  const Key = `likes#${blog_id}`;
-  try {
-    await sql`
-      INSERT INTO likes(user_id, blog_id, status) VALUES (${userId}, ${blog_id}, 1)
-    `;
-    await Redisclient.del(Key);
-    return res.status(200).json({ message: "Like added succesfully" });
-  }
-  catch (error) {
-    return res.status(400).json({ message: "Error occured while liking", error: error.message });
-  }
-});
 
 router.get("/get/blogs/like_status/", async (req, res) => {
   const { userId, blog_id } = req.query;
@@ -67,25 +53,45 @@ router.get("/get/blogs/likes_count", async (req, res) => {
   }
 });
 
-router.put("/edit/blogs/likes", async (req, res) => {
+router.post("/blogs/likes", async (req, res) => {
   const { userId, blog_id } = req.body;
   const Key = `likes#${blog_id}`;
+
   try {
-    const query = await sql`
-      UPDATE likes SET status = 1 - status WHERE user_id = ${userId} AND blog_id = ${blog_id} RETURNING status
+    // Check if a like record exists
+    const existingLike = await sql`
+      SELECT status FROM likes WHERE user_id = ${userId} AND blog_id = ${blog_id}
     `;
-    await Redisclient.del(Key); // Invalidate cache
-    return res.status(200).json({
-      message: "Successfully updated the like",
-      status: query[0].status
-    });
-  }
-  catch (error) {
+
+    if (existingLike.length > 0) {
+      // If exists, toggle the status
+      const updated = await sql`
+        UPDATE likes 
+        SET status = 1 - status 
+        WHERE user_id = ${userId} AND blog_id = ${blog_id}
+        RETURNING status
+      `;
+      await Redisclient.del(Key);
+      return res.status(200).json({
+        message: "Like status toggled",
+        status: updated[0].status
+      });
+    } else {
+      // If not exists, insert new like with status = 1
+      await sql`
+        INSERT INTO likes(user_id, blog_id, status) 
+        VALUES (${userId}, ${blog_id}, 1)
+      `;
+      await Redisclient.del(Key);
+      return res.status(200).json({ message: "Like added successfully", status: 1 });
+    }
+  } catch (error) {
     return res.status(400).json({
-      message: "Error occured while updating like",
+      message: "Error occurred while processing like",
       error: error.message
     });
   }
 });
+
 
 module.exports =router;
