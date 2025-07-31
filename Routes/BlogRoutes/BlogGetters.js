@@ -110,6 +110,8 @@ router.get("/blogs/:blog_id", async (req, res) => {
         return res.status(404).json({ message: "Blog not found" });
       }
       blog = query[0];
+      const userNamequery=await sql`select user_name from users where user_id=${blog.user_id}`;
+      blog.user_name=userNamequery[0].user_name;
       await Redisclient.set(key, JSON.stringify(blog));
     }
 
